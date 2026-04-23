@@ -3,7 +3,7 @@ from django.core.exceptions import ImproperlyConfigured
 
 DEBUG = False
 
-if SECRET_KEY == "dev-only-change-me-with-at-least-32-bytes":
+if SECRET_KEY == "django-insecure-anaacoss-2026-super-secret-key-change-this-93x7k2m8q1":
     raise ImproperlyConfigured("DJANGO_SECRET_KEY must be set in production.")
 
 SECURE_SSL_REDIRECT = True

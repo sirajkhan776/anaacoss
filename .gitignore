@@ -8,3 +8,6 @@ db.sqlite3
 db.sqlite3-journal
 media/
 staticfiles/
+
+test.sqlite3
+test.sqlite3-journal
