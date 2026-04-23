@@ -1,0 +1,121 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Anaacoss is a premium cosmetics and skincare eCommerce experience.">
+  <title>{% block title %}Anaacoss - Luxury Beauty Atelier{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="{% static 'css/luxe.css' %}">
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  <div class="top-ribbon">
+    <span><i class="fa-solid fa-gem"></i> Complimentary ritual kit above Rs. 4,000</span>
+    <span><i class="fa-solid fa-truck-fast"></i> Free shipping above Rs. 2,500</span>
+    <span><i class="fa-solid fa-leaf"></i> Cruelty-free luxury formulas</span>
+  </div>
+
+  <header class="site-header" data-header>
+    <a class="brand" href="/" data-spa>
+      <span class="brand-mark">A</span>
+      <span>Anaacoss</span>
+    </a>
+    <nav class="nav-links">
+      <a href="/shop/" data-spa>Shop</a>
+      {% for category in categories %}
+        <a href="{% url 'category' category.slug %}" data-spa>{{ category.name }}</a>
+      {% endfor %}
+      <a href="/offers/" data-spa>Offers</a>
+      <a href="/about/" data-spa>About</a>
+    </nav>
+    <div class="nav-actions">
+      <button class="icon-btn" type="button" data-search-open aria-label="Search"><i class="fa-solid fa-magnifying-glass"></i></button>
+      <a class="icon-btn" href="/wishlist/" data-spa aria-label="Wishlist"><i class="fa-regular fa-heart"></i></a>
+      <a class="icon-btn cart-link" href="/cart/" data-spa aria-label="Cart"><i class="fa-solid fa-bag-shopping"></i><span data-cart-count>0</span></a>
+      <button class="btn btn-dark btn-small" type="button" data-auth-open>Account</button>
+      <button class="icon-btn mobile-menu" type="button" data-menu-toggle aria-label="Menu"><i class="fa-solid fa-bars"></i></button>
+    </div>
+  </header>
+
+  <div class="mobile-panel" data-mobile-panel>
+    <a href="/shop/" data-spa>Shop all</a>
+    <a href="/offers/" data-spa>Offers</a>
+    <a href="/dashboard/" data-spa>Dashboard</a>
+    <a href="/contact/" data-spa>Contact</a>
+  </div>
+
+  <aside class="search-drawer" data-search-drawer>
+    <div class="drawer-head">
+      <strong>Find your ritual</strong>
+      <button class="icon-btn" type="button" data-search-close><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <input class="lux-input" type="search" placeholder="Serum, lipstick, fragrance..." data-search-input>
+    <div class="suggestions" data-suggestions></div>
+  </aside>
+
+  <main id="page-root">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="site-footer">
+    <div>
+      <a class="brand footer-brand" href="/" data-spa><span class="brand-mark">A</span><span>Anaacoss</span></a>
+      <p>High-performance cosmetics shaped for luminous, modern rituals.</p>
+    </div>
+    <div>
+      <h4>Explore</h4>
+      <a href="/shop/" data-spa>Shop</a>
+      <a href="/offers/" data-spa>Offers</a>
+      <a href="/faq/" data-spa>FAQ</a>
+    </div>
+    <div>
+      <h4>Care</h4>
+      <a href="/contact/" data-spa>Contact</a>
+      <a href="/dashboard/" data-spa>Orders</a>
+      <a href="/about/" data-spa>Our atelier</a>
+    </div>
+    <div>
+      <h4>Follow</h4>
+      <div class="socials"><i class="fa-brands fa-instagram"></i><i class="fa-brands fa-tiktok"></i><i class="fa-brands fa-pinterest"></i></div>
+    </div>
+  </footer>
+
+  <div class="modal-shell" data-auth-modal aria-hidden="true">
+    <div class="modal-card">
+      <button class="icon-btn modal-close" type="button" data-auth-close><i class="fa-solid fa-xmark"></i></button>
+      <div class="auth-tabs">
+        <button class="active" data-auth-tab="login">Login</button>
+        <button data-auth-tab="register">Register</button>
+      </div>
+      <form class="auth-form active" data-auth-form="login">
+        {% csrf_token %}
+        <h3>Welcome back</h3>
+        <input class="lux-input" name="username" placeholder="Email or username" required>
+        <input class="lux-input" name="password" type="password" placeholder="Password" required>
+        <button class="btn btn-dark" type="submit">Login</button>
+      </form>
+      <form class="auth-form" data-auth-form="register">
+        {% csrf_token %}
+        <h3>Create your account</h3>
+        <input class="lux-input" name="first_name" placeholder="First name">
+        <input class="lux-input" name="last_name" placeholder="Last name">
+        <input class="lux-input" name="username" placeholder="Username" required>
+        <input class="lux-input" name="email" type="email" placeholder="Email" required>
+        <input class="lux-input" name="phone" placeholder="Phone">
+        <input class="lux-input" name="password" type="password" placeholder="Password" required>
+        <button class="btn btn-dark" type="submit">Register</button>
+      </form>
+      <p class="form-note" data-auth-message></p>
+    </div>
+  </div>
+
+  <div class="toast" data-toast></div>
+  <script src="{% static 'js/storefront.js' %}"></script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

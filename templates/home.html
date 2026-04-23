@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}Anaacoss - Premium Cosmetics{% endblock %}
+{% block content %}
+<section class="hero">
+  <div class="hero-bg" style="background-image:url('https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=1800&q=85')"></div>
+  <div class="hero-content reveal">
+    <p class="eyebrow">New luminous ritual collection</p>
+    <h1>Anaacoss</h1>
+    <p>Premium skincare, makeup, fragrance, and tools curated for polished everyday radiance.</p>
+    <div class="hero-actions">
+      <a class="btn btn-dark" href="/shop/" data-spa>Shop the edit</a>
+      <a class="btn btn-ghost" href="/offers/" data-spa>Explore offers</a>
+    </div>
+  </div>
+  <div class="floating-icons">
+    <span><i class="fa-solid fa-wand-magic-sparkles"></i></span>
+    <span><i class="fa-solid fa-droplet"></i></span>
+    <span><i class="fa-solid fa-seedling"></i></span>
+  </div>
+</section>
+
+<section class="promise-strip reveal">
+  <div><i class="fa-solid fa-leaf"></i><span>Cruelty-free</span></div>
+  <div><i class="fa-solid fa-shield-heart"></i><span>Dermatology tested</span></div>
+  <div><i class="fa-solid fa-truck-fast"></i><span>Luxury delivery</span></div>
+  <div><i class="fa-solid fa-lock"></i><span>Secure checkout</span></div>
+</section>
+
+<section class="section reveal">
+  <div class="section-head">
+    <p class="eyebrow">Curated departments</p>
+    <h2>Beauty rituals by category</h2>
+    <a href="/shop/" data-spa>View all</a>
+  </div>
+  <div class="category-grid">
+    {% for category in featured_categories %}
+      <a class="category-tile" href="{% url 'category' category.slug %}" data-spa>
+        <i class="fa-solid fa-{{ category.icon }}"></i>
+        <h3>{{ category.name }}</h3>
+        <p>{{ category.description|truncatechars:90 }}</p>
+      </a>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="section blush-band reveal">
+  <div class="section-head">
+    <p class="eyebrow">Trending now</p>
+    <h2>High-performance beauty icons</h2>
+  </div>
+  <div class="product-grid">
+    {% for product in trending_products %}
+      {% include "partials_product_card.html" %}
+    {% endfor %}
+  </div>
+</section>
+
+<section class="split-story reveal">
+  <div>
+    <p class="eyebrow">Atelier standard</p>
+    <h2>Formulas that look refined and work hard.</h2>
+    <p>Every Anaacoss edit is selected for finish, sensorial texture, shade intelligence, and skin-supporting performance.</p>
+    <a class="btn btn-dark" href="/about/" data-spa>Our philosophy</a>
+  </div>
+  <div class="story-image" style="background-image:url('https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=1100&q=85')"></div>
+</section>
+
+<section class="section reveal">
+  <div class="section-head">
+    <p class="eyebrow">Best sellers</p>
+    <h2>Repeatedly chosen, rarely restocked</h2>
+  </div>
+  <div class="product-grid">
+    {% for product in best_sellers %}
+      {% include "partials_product_card.html" %}
+    {% endfor %}
+  </div>
+</section>
+
+<section class="offer-banner reveal">
+  <div>
+    <p class="eyebrow">Limited time</p>
+    <h2>Rose Gold Week: ritual sets up to 30% off</h2>
+    <p>Layer skincare, color, and fragrance with exclusive combo savings.</p>
+  </div>
+  <a class="btn btn-light" href="/offers/" data-spa>Claim offers</a>
+</section>
+
+<section class="section reveal">
+  <div class="section-head">
+    <p class="eyebrow">Fresh arrivals</p>
+    <h2>New textures in the atelier</h2>
+  </div>
+  <div class="product-grid">
+    {% for product in new_arrivals %}
+      {% include "partials_product_card.html" %}
+    {% endfor %}
+  </div>
+</section>
+
+<section class="testimonials reveal">
+  {% for item in testimonials %}
+    <article>
+      <div class="stars">★★★★★</div>
+      <p>{{ item.quote }}</p>
+      <strong>{{ item.name }}</strong>
+      <span>{{ item.role }}</span>
+    </article>
+  {% endfor %}
+</section>
+
+<section class="instagram-section reveal">
+  <div class="section-head">
+    <p class="eyebrow">Beauty shelf</p>
+    <h2>@anaacoss rituals</h2>
+  </div>
+  <div class="insta-grid">
+    <img src="https://images.unsplash.com/photo-1612817288484-6f916006741a?auto=format&fit=crop&w=600&q=80" alt="Cosmetics flatlay">
+    <img src="https://images.unsplash.com/photo-1571781926291-c477ebfd024b?auto=format&fit=crop&w=600&q=80" alt="Skincare bottle">
+    <img src="https://images.unsplash.com/photo-1583241475880-083f84372725?auto=format&fit=crop&w=600&q=80" alt="Makeup palette">
+    <img src="https://images.unsplash.com/photo-1596755389378-c31d21fd1273?auto=format&fit=crop&w=600&q=80" alt="Beauty tools">
+  </div>
+</section>
+
+<section class="newsletter reveal">
+  <p class="eyebrow">Private beauty notes</p>
+  <h2>Get early access to drops, rituals, and offers.</h2>
+  <form data-newsletter>
+    <input class="lux-input" name="email" type="email" placeholder="Email address" required>
+    <button class="btn btn-dark" type="submit">Subscribe</button>
+  </form>
+</section>
+{% endblock %}

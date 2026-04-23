@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - Anaacoss{% endblock %}
+{% block content %}
+<section class="page-hero compact"><p class="eyebrow">Account</p><h1>Your beauty dashboard</h1></section>
+<section class="dashboard-grid">
+  <article class="dashboard-card">
+    <h3>Profile</h3>
+    <p data-profile-summary>Login to view your profile, orders, addresses, and saved products.</p>
+    <button class="btn btn-dark" type="button" data-auth-open>Login</button>
+  </article>
+  <article class="dashboard-card">
+    <h3>Order history</h3>
+    {% for order in orders %}
+      <div class="order-line"><span>#{{ order.id }} {{ order.status }}</span><strong>Rs. {{ order.total }}</strong></div>
+    {% empty %}
+      <p>No orders yet.</p>
+    {% endfor %}
+  </article>
+  <article class="dashboard-card"><h3>Saved addresses</h3><p>Use the address API to manage delivery destinations.</p></article>
+  <article class="dashboard-card"><h3>Recently viewed</h3><p>Your recently viewed product trail appears as you browse.</p></article>
+</section>
+{% endblock %}

@@ -1,0 +1,27 @@
+<article class="product-card" data-product-id="{{ product.id }}">
+  <a class="product-media" href="{{ product.get_absolute_url }}" data-spa>
+    {% with primary=product.images.all|dictsort:"sort_order"|first %}
+      {% if primary.url %}
+        <img src="{{ primary.thumbnail|default:primary.url }}" alt="{{ primary.alt_text|default:product.name }}" loading="lazy">
+      {% else %}
+        <div class="image-fallback"><i class="fa-solid fa-spa"></i></div>
+      {% endif %}
+    {% endwith %}
+    {% if product.badge %}<span class="badge">{{ product.badge }}</span>{% endif %}
+    <div class="quick-actions">
+      <button type="button" data-add-cart="{{ product.id }}" aria-label="Add to cart"><i class="fa-solid fa-bag-shopping"></i></button>
+      <button type="button" data-wishlist="{{ product.id }}" aria-label="Wishlist"><i class="fa-regular fa-heart"></i></button>
+      <button type="button" data-quick-view="{{ product.slug }}" aria-label="Quick view"><i class="fa-solid fa-eye"></i></button>
+    </div>
+  </a>
+  <div class="product-info">
+    <p class="product-brand">{{ product.brand.name }}</p>
+    <a href="{{ product.get_absolute_url }}" data-spa><h3>{{ product.name }}</h3></a>
+    <p>{{ product.short_description }}</p>
+    <div class="rating"><i class="fa-solid fa-star"></i> {{ product.rating }} <span>({{ product.review_count }})</span></div>
+    <div class="price-row">
+      <strong>Rs. {{ product.final_price }}</strong>
+      {% if product.discount_price %}<del>Rs. {{ product.price }}</del>{% endif %}
+    </div>
+  </div>
+</article>

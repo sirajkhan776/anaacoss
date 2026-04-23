@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Your Bag - Anaacoss{% endblock %}
+{% block content %}
+<section class="page-hero compact"><p class="eyebrow">Shopping bag</p><h1>Your ritual bag</h1></section>
+<section class="cart-layout">
+  <div class="cart-items" data-cart-items></div>
+  <aside class="summary-card">
+    <h3>Order summary</h3>
+    <div data-cart-summary></div>
+    <form data-coupon-form>
+      <input class="lux-input" name="code" placeholder="Coupon code">
+      <button class="btn btn-dark" type="submit">Apply</button>
+    </form>
+    <button class="btn btn-ghost full" type="button" data-remove-coupon>Remove coupon</button>
+    <a class="btn btn-dark full" href="/checkout/" data-spa>Checkout</a>
+  </aside>
+</section>
+{% endblock %}

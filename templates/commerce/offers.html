@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Offers - Anaacoss{% endblock %}
+{% block content %}
+<section class="page-hero offers-hero">
+  <p class="eyebrow">Rose Gold Week</p>
+  <h1>Limited beauty offers</h1>
+  <p>Luxury sets, coupon codes, and premium combo savings for a refined beauty shelf.</p>
+</section>
+<section class="coupon-grid">
+  {% for coupon in coupons %}
+    <article class="coupon-card">
+      <i class="fa-solid fa-ticket"></i>
+      <h3>{{ coupon.code }}</h3>
+      <p>{{ coupon.title }}</p>
+      <span>Min Rs. {{ coupon.minimum_order_value }}</span>
+    </article>
+  {% endfor %}
+</section>
+<section class="section">
+  <div class="section-head"><p class="eyebrow">Offer edit</p><h2>Discounted rituals</h2></div>
+  <div class="product-grid">
+    {% for product in offers %}{% include "partials_product_card.html" %}{% endfor %}
+  </div>
+</section>
+{% endblock %}

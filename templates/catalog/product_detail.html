@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block title %}{{ product.name }} - Anaacoss{% endblock %}
+{% block content %}
+<section class="product-detail" data-product-detail data-product-id="{{ product.id }}">
+  <div class="gallery">
+    <div class="viewer" data-tilt-viewer>
+      {% with primary=product.images.all|dictsort:"sort_order"|first %}
+        {% if primary.url and primary.media_type == "video" %}
+          <video src="{{ primary.url }}" poster="{{ primary.thumbnail }}" controls muted playsinline data-main-video></video>
+        {% elif primary.url %}
+          <img src="{{ primary.url }}" alt="{{ product.name }}" data-main-image>
+        {% else %}
+          <div class="image-fallback large"><i class="fa-solid fa-spa"></i></div>
+        {% endif %}
+      {% endwith %}
+      <span class="viewer-badge">360 style drag</span>
+    </div>
+    <div class="thumbs">
+      {% for image in product.images.all %}
+        {% if image.placement == "gallery" %}
+          <button type="button" data-media-type="{{ image.media_type }}" data-thumb="{{ image.url }}" data-poster="{{ image.thumbnail }}">
+            {% if image.thumbnail %}<img src="{{ image.thumbnail }}" alt="{{ image.alt_text|default:product.name }}">{% endif %}
+            {% if image.media_type == "video" %}<span class="play-dot"><i class="fa-solid fa-play"></i></span>{% endif %}
+          </button>
+        {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+  <div class="product-copy">
+    <p class="eyebrow">{{ product.brand.name }}</p>
+    <h1>{{ product.name }}</h1>
+    <p>{{ product.short_description }}</p>
+    <div class="rating"><i class="fa-solid fa-star"></i> {{ product.rating }} <span>{{ product.review_count }} reviews</span></div>
+    <div class="detail-price">
+      <strong>Rs. {{ product.final_price }}</strong>
+      {% if product.discount_price %}<del>Rs. {{ product.price }}</del>{% endif %}
+    </div>
+    <p class="stock {% if product.in_stock %}in{% else %}out{% endif %}">{% if product.in_stock %}In stock{% else %}Out of stock{% endif %}</p>
+    {% if product.variants.exists %}
+      <label>Choose option
+        <select class="lux-input" data-variant-select>
+          <option value="">Signature size</option>
+          {% for variant in product.variants.all %}
+            <option value="{{ variant.id }}">{{ variant.name }} - {{ variant.value }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    {% endif %}
+    <div class="qty-row">
+      <button type="button" data-qty-minus>-</button>
+      <input class="lux-input" value="1" min="1" type="number" data-quantity>
+      <button type="button" data-qty-plus>+</button>
+    </div>
+    <div class="detail-actions">
+      <button class="btn btn-dark" type="button" data-add-cart="{{ product.id }}">Add to bag</button>
+      <button class="btn btn-rose" type="button" data-buy-now="{{ product.id }}">Buy now</button>
+      <button class="icon-btn big" type="button" data-wishlist="{{ product.id }}"><i class="fa-regular fa-heart"></i></button>
+    </div>
+    {% if product.is_offer %}<div class="coupon-highlight"><i class="fa-solid fa-ticket"></i> Eligible for Rose Gold Week coupons.</div>{% endif %}
+    <div class="accordion">
+      <details open><summary>Description</summary><p>{{ product.description }}</p></details>
+      <details><summary>Ingredients</summary><p>{{ product.ingredients }}</p></details>
+      <details><summary>How to use</summary><p>{{ product.how_to_use }}</p></details>
+    </div>
+  </div>
+</section>
+
+<section class="section review-section">
+  <div class="section-head">
+    <div>
+      <p class="eyebrow">Customer reviews</p>
+      <h2>Rated by real customers</h2>
+    </div>
+  </div>
+  <div class="review-layout">
+    <div class="review-list" data-review-list>
+      {% for review in product.reviews.all %}
+        {% if review.is_approved %}
+          <article class="review-card">
+            <div class="review-head">
+              <strong>{{ review.user.get_full_name|default:review.user.username }}</strong>
+              <span>{% for i in "12345" %}{% if forloop.counter <= review.rating %}★{% else %}☆{% endif %}{% endfor %}</span>
+            </div>
+            <h3>{{ review.title }}</h3>
+            <p>{{ review.body }}</p>
+            <div class="review-images">
+              {% for image in review.images.all %}
+                <img src="{{ image.image.url }}" alt="{{ image.alt_text|default:review.title }}">
+              {% endfor %}
+            </div>
+          </article>
+        {% endif %}
+      {% empty %}
+        <p class="empty-state">No customer reviews yet. Be the first customer to review this product.</p>
+      {% endfor %}
+    </div>
+    <form class="review-form" data-review-form data-product-id="{{ product.id }}" enctype="multipart/form-data">
+      {% csrf_token %}
+      <h3>Write a customer review</h3>
+      <select class="lux-input" name="rating" required>
+        <option value="">Rating</option>
+        <option value="5">5 stars</option>
+        <option value="4">4 stars</option>
+        <option value="3">3 stars</option>
+        <option value="2">2 stars</option>
+        <option value="1">1 star</option>
+      </select>
+      <input class="lux-input" name="title" placeholder="Review title" required>
+      <textarea class="lux-input" name="body" rows="5" placeholder="Share your product experience" required></textarea>
+      <label class="file-drop">
+        <i class="fa-solid fa-image"></i>
+        <span>Upload product review images</span>
+        <input name="images" type="file" accept="image/*" multiple>
+      </label>
+      <button class="btn btn-dark" type="submit">Submit review</button>
+      <p class="form-note" data-review-message></p>
+    </form>
+  </div>
+</section>
+
+<section class="section before-after">
+  <div class="section-head">
+    <p class="eyebrow">Visible ritual proof</p>
+    <h2>Before and after</h2>
+  </div>
+  <div class="before-after-grid">
+    {% for media in product.images.all %}
+      {% if media.placement == "before" or media.placement == "after" %}
+        <article class="proof-card">
+          <span>{{ media.placement|title }}</span>
+          {% if media.media_type == "video" %}
+            <video src="{{ media.url }}" poster="{{ media.thumbnail }}" controls muted playsinline></video>
+          {% else %}
+            <img src="{{ media.url }}" alt="{{ media.alt_text|default:product.name }}">
+          {% endif %}
+        </article>
+      {% endif %}
+    {% empty %}
+      <p class="empty-state">Before and after media can be managed from the product gallery admin.</p>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <p class="eyebrow">Related rituals</p>
+    <h2>Pairs beautifully with</h2>
+  </div>
+  <div class="product-grid">
+    {% for product in related_products %}
+      {% include "partials_product_card.html" %}
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

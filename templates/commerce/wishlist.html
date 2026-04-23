@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Wishlist - Anaacoss{% endblock %}
+{% block content %}
+<section class="page-hero compact"><p class="eyebrow">Saved beauty</p><h1>Your wishlist</h1></section>
+<section class="section">
+  <div class="product-grid" data-wishlist-grid>
+    {% for item in wishlist_items %}
+      {% with product=item.product %}{% include "partials_product_card.html" %}{% endwith %}
+    {% empty %}
+      <p class="empty-state">Login and tap the heart to save your next ritual.</p>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

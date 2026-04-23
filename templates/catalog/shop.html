@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}{{ page_title }} - Anaacoss{% endblock %}
+{% block content %}
+<section class="page-hero compact">
+  <p class="eyebrow">Luxury beauty shop</p>
+  <h1>{{ page_title }}</h1>
+  <p>Filter high-performance formulas by ritual, skin type, finish, price, and rating.</p>
+</section>
+
+<section class="shop-layout">
+  <aside class="filters-panel">
+    <form data-filter-form>
+      <label>Search<input class="lux-input" name="q" placeholder="Serum, blush, scent"></label>
+      <label>Category
+        <select class="lux-input" name="category">
+          <option value="">All categories</option>
+          {% for category in categories %}<option value="{{ category.slug }}">{{ category.name }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>Brand
+        <select class="lux-input" name="brand">
+          <option value="">All brands</option>
+          {% for brand in brands %}<option value="{{ brand.slug }}">{{ brand.name }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>Skin type
+        <select class="lux-input" name="skin_type">
+          <option value="">Any</option>
+          <option value="dry">Dry</option>
+          <option value="oily">Oily</option>
+          <option value="combination">Combination</option>
+          <option value="sensitive">Sensitive</option>
+        </select>
+      </label>
+      <div class="range-row">
+        <input class="lux-input" name="min_price" placeholder="Min">
+        <input class="lux-input" name="max_price" placeholder="Max">
+      </div>
+      <label>Sort
+        <select class="lux-input" name="sort">
+          <option value="-created_at">Newest</option>
+          <option value="price">Price low to high</option>
+          <option value="-price">Price high to low</option>
+          <option value="-rating">Highest rated</option>
+        </select>
+      </label>
+      <label class="check-line"><input type="checkbox" name="offer" value="true"> Offers only</label>
+      <button class="btn btn-dark" type="submit">Apply filters</button>
+    </form>
+  </aside>
+  <div>
+    <div class="shop-toolbar">
+      <strong data-result-count>{{ products|length }} products</strong>
+      <span>SPA filters update the grid without a page refresh.</span>
+    </div>
+    <div class="product-grid" data-product-grid>
+      {% for product in products %}
+        {% include "partials_product_card.html" %}
+      {% empty %}
+        <p>No products found.</p>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endblock %}

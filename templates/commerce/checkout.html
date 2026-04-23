@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Checkout - Anaacoss{% endblock %}
+{% block content %}
+<section class="page-hero compact"><p class="eyebrow">Secure checkout</p><h1>Complete your order</h1></section>
+<section class="checkout-layout">
+  <form class="checkout-form" data-checkout-form>
+    <div class="form-grid">
+      <input class="lux-input" name="full_name" placeholder="Full name" required>
+      <input class="lux-input" name="email" type="email" placeholder="Email" required>
+      <input class="lux-input" name="phone" placeholder="Phone" required>
+      <input class="lux-input" name="address_line1" placeholder="Address line 1" required>
+      <input class="lux-input" name="address_line2" placeholder="Address line 2">
+      <input class="lux-input" name="city" placeholder="City" required>
+      <input class="lux-input" name="state" placeholder="State" required>
+      <input class="lux-input" name="postal_code" placeholder="Postal code" required>
+    </div>
+    <div class="payment-methods">
+      <label><input type="radio" name="payment_method" value="cod" checked> Pay on delivery</label>
+      <label><input type="radio" name="payment_method" value="card"> Card placeholder</label>
+      <label><input type="radio" name="payment_method" value="upi"> UPI placeholder</label>
+    </div>
+    <button class="btn btn-dark" type="submit">Place order</button>
+  </form>
+  <aside class="summary-card">
+    <h3>Ritual summary</h3>
+    <div data-cart-summary></div>
+  </aside>
+</section>
+{% endblock %}
