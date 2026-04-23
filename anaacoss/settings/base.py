@@ -83,13 +83,21 @@ TEMPLATES = [
 WSGI_APPLICATION = "anaacoss.wsgi.application"
 ASGI_APPLICATION = "anaacoss.asgi.application"
 
-DATABASES = {
-    "default": dj_database_url.config(
-        default=f"sqlite:///{env('DJANGO_SQLITE_PATH', str(Path.home() / '.codex' / 'memories' / 'db.sqlite3'))}",
-        conn_max_age=600,
-        conn_health_checks=True,
-    )
-}
+if os.environ.get("DATABASE_URL"):
+    DATABASES = {
+        "default": dj_database_url.parse(
+            os.environ["DATABASE_URL"],
+            conn_max_age=600,
+            conn_health_checks=True,
+        )
+    }
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
 
 AUTH_USER_MODEL = "accounts.User"
 
