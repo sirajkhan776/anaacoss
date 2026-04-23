@@ -2,10 +2,18 @@ const Storefront = (() => {
   const state = {
     access: localStorage.getItem("anaacoss_access"),
     refresh: localStorage.getItem("anaacoss_refresh"),
+    isAuthenticated: Boolean(localStorage.getItem("anaacoss_access")) || document.body?.dataset.userAuthenticated === "true",
+    sessionPromise: null,
+    user: null,
+    addresses: [],
+    selectedAddressId: null,
     handlersBound: {
       navigation: false,
       products: false,
       cart: false,
+      location: false,
+      accountTrigger: false,
+      accountPanel: false,
     },
   };
 
@@ -55,6 +63,8 @@ const Storefront = (() => {
         const data = await refreshed.json();
         setTokens(data.access, data.refresh || state.refresh);
         return api(url, options);
+      } else {
+        clearTokens();
       }
     }
     const data = await response.json().catch(() => ({}));
@@ -65,8 +75,23 @@ const Storefront = (() => {
   function setTokens(access, refresh) {
     state.access = access;
     state.refresh = refresh;
+    state.isAuthenticated = true;
+    document.body?.setAttribute("data-user-authenticated", "true");
     localStorage.setItem("anaacoss_access", access);
     localStorage.setItem("anaacoss_refresh", refresh);
+  }
+
+  function clearTokens() {
+    state.access = null;
+    state.refresh = null;
+    state.isAuthenticated = false;
+    state.sessionPromise = null;
+    state.user = null;
+    state.addresses = [];
+    state.selectedAddressId = null;
+    document.body?.setAttribute("data-user-authenticated", "false");
+    localStorage.removeItem("anaacoss_access");
+    localStorage.removeItem("anaacoss_refresh");
   }
 
   function toast(message) {
@@ -75,6 +100,34 @@ const Storefront = (() => {
     el.textContent = message;
     el.classList.add("show");
     setTimeout(() => el.classList.remove("show"), 2600);
+  }
+
+  function addressLocationText(address) {
+    if (!address) return "Add your delivery address";
+    return [address.label, address.city, address.postal_code].filter(Boolean).join(", ");
+  }
+
+  function addressFullText(address) {
+    return [address.line1, address.line2, address.city, address.state, address.postal_code].filter(Boolean).join(", ");
+  }
+
+  function renderSavedAddresses() {
+    const root = $("[data-saved-addresses]");
+    if (!root) return;
+    if (!state.addresses.length) {
+      root.innerHTML = `<p class="location-empty">No saved addresses yet.</p>`;
+      return;
+    }
+    root.innerHTML = state.addresses.map((address) => `
+      <label class="saved-address-option">
+        <input type="radio" name="saved_address" value="${address.id}" ${String(state.selectedAddressId) === String(address.id) ? "checked" : ""}>
+        <span class="saved-address-copy">
+          <strong>${address.full_name}</strong>
+          <span class="saved-address-meta">${address.label}${address.is_default ? " • Default" : ""}</span>
+          <p>${addressFullText(address)}</p>
+        </span>
+      </label>
+    `).join("");
   }
 
   async function navigate(url, push = true) {
@@ -105,10 +158,42 @@ const Storefront = (() => {
     window.addEventListener("popstate", () => navigate(location.href, false));
   }
 
+  function openModal(modal, trigger) {
+    if (!modal) return;
+    modal.dataset.returnFocus = trigger ? "true" : "";
+    if (trigger?.id) modal.dataset.returnFocusId = trigger.id;
+    else delete modal.dataset.returnFocusId;
+    modal._returnFocusEl = trigger || document.activeElement;
+    modal.setAttribute("aria-hidden", "false");
+    modal.classList.add("open");
+    document.body.classList.add("modal-open");
+    const dialog = modal.querySelector('[role="dialog"]');
+    const autofocusTarget = modal.querySelector("input, button, select, textarea, a[href], [tabindex]:not([tabindex='-1'])");
+    (autofocusTarget || dialog)?.focus?.();
+  }
+
+  function closeModal(modal) {
+    if (!modal) return;
+    const returnFocusEl = modal._returnFocusEl;
+    if (modal.contains(document.activeElement)) {
+      document.activeElement.blur?.();
+    }
+    modal.classList.remove("open");
+    modal.setAttribute("aria-hidden", "true");
+    if (!$$(".modal-shell.open").length) {
+      document.body.classList.remove("modal-open");
+    }
+    if (returnFocusEl && document.contains(returnFocusEl)) {
+      returnFocusEl.focus?.();
+    }
+  }
+
   function bindAuth() {
     const modal = $("[data-auth-modal]");
-    $$("[data-auth-open]").forEach((btn) => btn.addEventListener("click", () => modal?.classList.add("open")));
-    $$("[data-auth-close]").forEach((btn) => btn.addEventListener("click", () => modal?.classList.remove("open")));
+    $$("[data-auth-close]").forEach((btn) => btn.addEventListener("click", () => closeModal(modal)));
+    modal?.addEventListener("click", (event) => {
+      if (event.target === modal) closeModal(modal);
+    });
     $$("[data-auth-tab]").forEach((btn) => {
       btn.addEventListener("click", () => {
         $$("[data-auth-tab]").forEach((tab) => tab.classList.toggle("active", tab === btn));
@@ -123,11 +208,13 @@ const Storefront = (() => {
         try {
           const data = await api(`/api/auth/${mode}/`, { method: "POST", body: JSON.stringify(payload) });
           setTokens(data.access, data.refresh);
+          state.user = data.user;
           $("[data-auth-message]").textContent = `Signed in as ${data.user.first_name || data.user.username}`;
-          modal?.classList.remove("open");
+          closeModal(modal);
           toast("Account ready");
           updateCartBadge();
           updateWishlistBadge();
+          updateDeliveryStrip();
         } catch (error) {
           $("[data-auth-message]").textContent = flattenError(error);
         }
@@ -135,9 +222,56 @@ const Storefront = (() => {
     });
   }
 
+  async function bootstrapSession(force = false) {
+    if (state.sessionPromise && !force) return state.sessionPromise;
+    state.access = state.access || localStorage.getItem("anaacoss_access");
+    state.refresh = state.refresh || localStorage.getItem("anaacoss_refresh");
+    state.sessionPromise = (async () => {
+      try {
+        const user = await api("/api/auth/me/");
+        state.user = user;
+        state.isAuthenticated = true;
+        document.body?.setAttribute("data-user-authenticated", "true");
+        return user;
+      } catch {
+        clearTokens();
+        return null;
+      } finally {
+        state.sessionPromise = null;
+      }
+    })();
+    return state.sessionPromise;
+  }
+
+  async function ensureUserProfile() {
+    if (state.user) return state.user;
+    try {
+      return await bootstrapSession();
+    } catch {
+      return null;
+    } 
+  }
+
+  function bindAccountTrigger() {
+    if (state.handlersBound.accountTrigger) return;
+    state.handlersBound.accountTrigger = true;
+    $$("[data-account-open]").forEach((btn) => btn.addEventListener("click", async () => {
+      const user = await bootstrapSession();
+      if (user) {
+        navigate("/dashboard/");
+        return;
+      }
+      openModal($("[data-auth-modal]"), btn);
+    }));
+  }
+
   function flattenError(error) {
     if (typeof error === "string") return error;
-    return Object.entries(error || {}).map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(", ") : value}`).join(" ");
+    return Object.entries(error || {}).map(([key, value]) => {
+      const text = Array.isArray(value) ? value.join(", ") : value;
+      if (key === "non_field_errors" || key === "detail") return text;
+      return `${key}: ${text}`;
+    }).join(" ");
   }
 
   async function updateCartBadge() {
@@ -164,9 +298,113 @@ const Storefront = (() => {
       counts.forEach((count) => { count.textContent = wishlist.length || 0; });
       return wishlist.length || 0;
     } catch {
+      clearTokens();
       counts.forEach((count) => { count.textContent = 0; });
       return null;
     }
+  }
+
+  async function updateDeliveryStrip() {
+    const strip = $("[data-delivery-strip]");
+    const name = $("[data-delivery-name]");
+    const location = $("[data-delivery-location]");
+    if (!strip || !name || !location) return null;
+    const user = await bootstrapSession();
+    if (!user) {
+      state.user = null;
+      state.addresses = [];
+      state.selectedAddressId = null;
+      name.textContent = "User";
+      location.textContent = "";
+      location.hidden = true;
+      strip.hidden = true;
+      renderSavedAddresses();
+      return null;
+    }
+    try {
+      const [, addresses] = await Promise.all([
+        Promise.resolve(user),
+        api("/api/auth/addresses/"),
+      ]);
+      state.addresses = addresses;
+      const preferredAddress = addresses.find((item) => item.is_default) || addresses[0];
+      state.selectedAddressId = preferredAddress?.id || null;
+      name.textContent = user.username || user.first_name || "User";
+      const locationText = preferredAddress ? addressLocationText(preferredAddress) : "";
+      location.textContent = locationText;
+      location.hidden = !locationText;
+      renderSavedAddresses();
+      strip.hidden = false;
+      return { user, addresses };
+    } catch {
+      clearTokens();
+      state.addresses = [];
+      state.selectedAddressId = null;
+      location.textContent = "";
+      location.hidden = true;
+      strip.hidden = true;
+      renderSavedAddresses();
+      return null;
+    }
+  }
+
+  function bindLocationModal() {
+    if (state.handlersBound.location) return;
+    state.handlersBound.location = true;
+    const modal = $("[data-location-modal]");
+    const pincodeInput = $("[data-location-pincode]");
+    const openLocationModal = async (trigger) => {
+      if (!state.access) {
+        openModal($("[data-auth-modal]"), trigger);
+        return;
+      }
+      await updateDeliveryStrip();
+      openModal(modal, trigger);
+    };
+    const closeLocationModal = () => closeModal(modal);
+
+    $$("[data-location-open]").forEach((btn) => btn.addEventListener("click", () => openLocationModal(btn)));
+    $$("[data-location-close]").forEach((btn) => btn.addEventListener("click", closeLocationModal));
+    modal?.addEventListener("click", (event) => {
+      if (event.target === modal) closeLocationModal();
+    });
+    $("[data-location-search]")?.addEventListener("click", () => {
+      pincodeInput?.focus();
+      toast("Search by pincode or area");
+    });
+    $("[data-location-current]")?.addEventListener("click", () => {
+      if (!navigator.geolocation) {
+        toast("Location access is not supported on this device");
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        () => toast("Current location detected. Add the nearest address from your saved list."),
+        () => toast("Unable to access your current location"),
+        { enableHighAccuracy: true, timeout: 8000 },
+      );
+    });
+    pincodeInput?.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      const value = pincodeInput.value.trim();
+      if (!value) return;
+      toast(`Checking delivery for ${value}`);
+    });
+    document.addEventListener("change", (event) => {
+      const addressInput = event.target.closest('input[name="saved_address"]');
+      if (!addressInput) return;
+      const address = state.addresses.find((item) => String(item.id) === String(addressInput.value));
+      if (!address) return;
+      state.selectedAddressId = address.id;
+      const location = $("[data-delivery-location]");
+      if (location) {
+        location.textContent = addressLocationText(address);
+        location.hidden = false;
+      }
+      renderSavedAddresses();
+      closeLocationModal();
+      toast(`Delivery location set to ${address.label}`);
+    });
   }
 
   function productCardHtml(product) {
@@ -245,7 +483,7 @@ const Storefront = (() => {
           });
           toast(data.wishlisted ? "Saved to wishlist" : "Removed from wishlist");
         } catch {
-          $("[data-auth-modal]")?.classList.add("open");
+          openModal($("[data-auth-modal]"), wish);
         }
       }
       const quick = event.target.closest("[data-quick-view]");
@@ -300,6 +538,7 @@ const Storefront = (() => {
   function bindCart() {
     updateCartBadge();
     updateWishlistBadge();
+    updateDeliveryStrip();
     if (state.handlersBound.cart) return;
     state.handlersBound.cart = true;
     document.addEventListener("click", async (event) => {
@@ -344,7 +583,7 @@ const Storefront = (() => {
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
       if (!state.access) {
-        $("[data-auth-modal]")?.classList.add("open");
+        openModal($("[data-auth-modal]"), form.querySelector('[type="submit"]'));
         toast("Login to place your order");
         return;
       }
@@ -369,6 +608,15 @@ const Storefront = (() => {
     let rotatingIndex = 0;
     let rotatingTimer = null;
     if (!input || !root || !box || !placeholder) return;
+    const runSearch = async (query) => {
+      if (query.length < 2) {
+        root.classList.remove("open");
+        root.innerHTML = "";
+        return;
+      }
+      const data = await api(`/api/products/suggestions/?q=${encodeURIComponent(query)}`);
+      renderSearchSuggestions(data.length ? data : defaultSearchSuggestions, query);
+    };
     const setPlaceholder = (text, entering = false) => {
       placeholder.textContent = text;
       placeholder.classList.remove("exit");
@@ -398,13 +646,7 @@ const Storefront = (() => {
       clearTimeout(timer);
       timer = setTimeout(async () => {
         const query = input.value.trim();
-        if (query.length < 2) {
-          root.classList.remove("open");
-          root.innerHTML = "";
-          return;
-        }
-        const data = await api(`/api/products/suggestions/?q=${encodeURIComponent(input.value)}`);
-        renderSearchSuggestions(data.length ? data : defaultSearchSuggestions, query);
+        await runSearch(query);
       }, 220);
     });
     input.addEventListener("keydown", (event) => {
@@ -429,11 +671,14 @@ const Storefront = (() => {
       recognition.lang = "en-IN";
       recognition.interimResults = false;
       recognition.maxAlternatives = 1;
-      recognition.onresult = (event) => {
+      recognition.onresult = async (event) => {
         const transcript = event.results?.[0]?.[0]?.transcript?.trim();
         if (!transcript) return;
         input.value = transcript;
-        input.dispatchEvent(new Event("input", { bubbles: true }));
+        placeholder.classList.remove("visible", "exit");
+        await runSearch(transcript);
+        toast(`Showing results for ${transcript}`);
+        navigate(`/shop/?q=${encodeURIComponent(transcript)}`);
       };
       recognition.onerror = () => toast("Voice search could not start");
       recognition.start();
@@ -443,7 +688,7 @@ const Storefront = (() => {
       if (!file) return;
       const matched = defaultSearchSuggestions.find((item) => file.name.toLowerCase().includes(item.query)) || defaultSearchSuggestions[0];
       input.value = matched.query;
-      input.dispatchEvent(new Event("input", { bubbles: true }));
+      runSearch(matched.query);
       toast(`Photo selected. Showing results for ${matched.label}`);
       camera.value = "";
     });
@@ -478,7 +723,7 @@ const Storefront = (() => {
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
       if (!state.access) {
-        $("[data-auth-modal]")?.classList.add("open");
+        openModal($("[data-auth-modal]"), form.querySelector('[type="submit"]'));
         toast("Login as a customer to review this product");
         return;
       }
@@ -549,6 +794,7 @@ const Storefront = (() => {
     bindNewsletter();
     bindReviews();
     bindGallery();
+    bindLocationModal();
     reveal();
   }
 
@@ -556,8 +802,14 @@ const Storefront = (() => {
     document.documentElement.classList.add("reveal-ready");
     bindNavigation();
     bindAuth();
+    bindAccountTrigger();
     bindProducts();
     bindSearch();
+    bootstrapSession().then(() => {
+      updateDeliveryStrip();
+      updateWishlistBadge();
+      updateCartBadge();
+    });
     bindPage();
   }
 

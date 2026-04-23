@@ -36,7 +36,7 @@
   {% block structured_data %}{% endblock %}
   {% block extra_head %}{% endblock %}
 </head>
-<body>
+<body data-user-authenticated="{% if request.user.is_authenticated %}true{% else %}false{% endif %}">
   <div class="top-ribbon">
     <span><i class="fa-solid fa-gem"></i> Complimentary ritual kit above Rs. 4,000</span>
     <span><i class="fa-solid fa-truck-fast"></i> Free shipping above Rs. 2,500</span>
@@ -44,25 +44,50 @@
   </div>
 
   <header class="site-header" data-header>
-    <div class="site-search" data-search-box>
-      <i class="fa-solid fa-magnifying-glass search-mark" aria-hidden="true"></i>
-      <div class="site-search-field">
-        <input class="site-search-input" type="search" data-search-input autocomplete="off" aria-label="Search products">
-        <span class="search-animated-placeholder" data-search-placeholder aria-hidden="true"></span>
-        <button class="search-tool-btn" type="button" data-search-mic aria-label="Voice search">
-          <i class="fa-solid fa-microphone"></i>
-        </button>
-        <label class="search-tool-btn search-tool-camera" aria-label="Search by photo">
-          <input type="file" accept="image/*" capture="environment" data-search-camera hidden>
-          <i class="fa-solid fa-camera"></i>
-        </label>
+    <div class="header-delivery-strip" data-delivery-strip hidden>
+      <div class="header-delivery-copy">
+        <div class="header-delivery-line">
+          <span class="header-delivery-label">Deliver to</span>
+          <strong data-delivery-name>User</strong>
+          <button class="header-delivery-action" type="button" data-location-open aria-label="Select delivery location">
+            <i class="fa-solid fa-angle-down"></i>
+          </button>
+        </div>
+        <span class="header-delivery-location" data-delivery-location hidden></span>
       </div>
-      <div class="site-search-dropdown" data-suggestions></div>
     </div>
-    <div class="nav-actions">
-      <button class="icon-btn top-notification" type="button" aria-label="Notifications"><i class="fa-regular fa-bell"></i></button>
-      <a class="icon-btn cart-link" href="/wishlist/" data-spa aria-label="Wishlist"><i class="fa-regular fa-heart"></i><span data-wishlist-count>0</span></a>
-      <button class="icon-btn top-account" type="button" data-auth-open aria-label="Account"><i class="fa-regular fa-user"></i></button>
+    <div class="header-main-row">
+      <a class="brand desktop-brand" href="/" data-spa aria-label="Anaacoss"><span class="brand-mark">A</span></a>
+      <nav class="desktop-nav" aria-label="Primary">
+        <a href="/" data-spa>Home</a>
+        <a href="/shop/" data-spa>Shop</a>
+        <a href="/offers/" data-spa>Offers</a>
+        <a href="/about/" data-spa>About</a>
+        <a href="/contact/" data-spa>Contact</a>
+      </nav>
+      <div class="header-tools">
+        <div class="site-search" data-search-box>
+          <i class="fa-solid fa-magnifying-glass search-mark" aria-hidden="true"></i>
+          <div class="site-search-field">
+            <input class="site-search-input" type="search" data-search-input autocomplete="off" aria-label="Search products">
+            <span class="search-animated-placeholder" data-search-placeholder aria-hidden="true"></span>
+            <button class="search-tool-btn" type="button" data-search-mic aria-label="Voice search">
+              <i class="fa-solid fa-microphone"></i>
+            </button>
+            <label class="search-tool-btn search-tool-camera" aria-label="Search by photo">
+              <input type="file" accept="image/*" capture="environment" data-search-camera hidden>
+              <i class="fa-solid fa-camera"></i>
+            </label>
+          </div>
+          <div class="site-search-dropdown" data-suggestions></div>
+        </div>
+        <div class="nav-actions">
+          <button class="icon-btn top-notification" type="button" aria-label="Notifications"><i class="fa-regular fa-bell"></i></button>
+          <a class="icon-btn cart-link" href="/wishlist/" data-spa aria-label="Wishlist"><i class="fa-regular fa-heart"></i><span data-wishlist-count>0</span></a>
+          <a class="icon-btn cart-link top-cart" href="/cart/" data-spa aria-label="Cart"><i class="fa-solid fa-bag-shopping"></i><span data-cart-count>0</span></a>
+          <button class="icon-btn top-account" type="button" data-account-open aria-label="Account"><i class="fa-regular fa-user"></i></button>
+        </div>
+      </div>
     </div>
   </header>
 
@@ -113,8 +138,29 @@
     </div>
   </footer>
 
+  <div class="modal-shell" data-location-modal aria-hidden="true">
+    <div class="modal-card location-modal-card" role="dialog" aria-modal="true" tabindex="-1">
+      <button class="icon-btn modal-close" type="button" data-location-close><i class="fa-solid fa-xmark"></i></button>
+      <div class="location-modal-head">
+        <h3>Select delivery location</h3>
+      </div>
+      <div class="location-modal-body">
+        <input class="lux-input location-pincode-input" name="pincode" placeholder="Check pincode" data-location-pincode>
+        <button class="location-text-link" type="button" data-location-current>Use my current location</button>
+        <button class="location-text-option" type="button" data-location-search>Search location</button>
+        <div class="location-divider"><span>OR</span></div>
+        <div class="location-saved-block">
+          <h4>Select saved address</h4>
+          <div class="location-saved-list" data-saved-addresses>
+            <p class="location-empty">No saved addresses yet.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-shell" data-auth-modal aria-hidden="true">
-    <div class="modal-card">
+    <div class="modal-card" role="dialog" aria-modal="true" tabindex="-1">
       <button class="icon-btn modal-close" type="button" data-auth-close><i class="fa-solid fa-xmark"></i></button>
       <div class="auth-tabs">
         <button class="active" data-auth-tab="login">Login</button>

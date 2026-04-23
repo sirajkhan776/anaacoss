@@ -1,22 +1,67 @@
 {% extends "base.html" %}
 {% block title %}Dashboard - Anaacoss{% endblock %}
 {% block content %}
-<section class="page-hero compact"><p class="eyebrow">Account</p><h1>Your beauty dashboard</h1></section>
+<section class="page-hero compact">
+  <p class="eyebrow">Account</p>
+  <h1>Your profile</h1>
+</section>
+{% if profile_user %}
+<section class="account-page">
+  <article class="account-page-hero">
+    <div class="account-avatar"><i class="fa-regular fa-user"></i></div>
+    <div class="account-hero-copy">
+      <h2>{{ profile_user.get_full_name|default:profile_user.username }}</h2>
+      <p>Become An Insider to avail Extra Rewards and better discount</p>
+    </div>
+  </article>
+  <button class="btn btn-dark" type="button">
+    <i class="fa-regular fa-gem"></i>
+    <span>Know more</span>
+  </button>
+  <article class="account-page-band">
+    <span>Shopping for {{ profile_user.first_name|default:profile_user.username }}</span>
+  </article>
+  <section class="account-grid">
+    <a class="account-shortcut" href="/dashboard/" data-spa>
+      <i class="fa-solid fa-box"></i>
+      <span>Orders</span>
+    </a>
+    <a class="account-shortcut" href="/contact/" data-spa>
+      <i class="fa-regular fa-circle-question"></i>
+      <span>Help Center</span>
+    </a>
+    <a class="account-shortcut" href="/offers/" data-spa>
+      <i class="fa-solid fa-ticket"></i>
+      <span>Coupons</span>
+    </a>
+    <button class="account-shortcut" type="button">
+      <i class="fa-regular fa-star"></i>
+      <span>Insider</span>
+    </button>
+  </section>
+  <section class="dashboard-grid">
+    <article class="dashboard-card">
+      <h3>Order history</h3>
+      {% for order in orders %}
+        <div class="order-line"><span>#{{ order.id }} {{ order.status }}</span><strong>Rs. {{ order.total }}</strong></div>
+      {% empty %}
+        <p>No orders yet.</p>
+      {% endfor %}
+    </article>
+    <article class="dashboard-card"><h3>Saved addresses</h3><p>Use the address API to manage delivery destinations.</p></article>
+  </section>
+  <button class="account-settings" type="button">
+    <i class="fa-solid fa-gear"></i>
+    <span>Settings</span>
+  </button>
+</section>
+{% else %}
 <section class="dashboard-grid">
   <article class="dashboard-card">
     <h3>Profile</h3>
     <p data-profile-summary>Login to view your profile, orders, addresses, and saved products.</p>
     <button class="btn btn-dark" type="button" data-auth-open>Login</button>
   </article>
-  <article class="dashboard-card">
-    <h3>Order history</h3>
-    {% for order in orders %}
-      <div class="order-line"><span>#{{ order.id }} {{ order.status }}</span><strong>Rs. {{ order.total }}</strong></div>
-    {% empty %}
-      <p>No orders yet.</p>
-    {% endfor %}
-  </article>
-  <article class="dashboard-card"><h3>Saved addresses</h3><p>Use the address API to manage delivery destinations.</p></article>
-  <article class="dashboard-card"><h3>Recently viewed</h3><p>Your recently viewed product trail appears as you browse.</p></article>
 </section>
+{% endif %}
 {% endblock %}

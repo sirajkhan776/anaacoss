@@ -1,5 +1,6 @@
 from django.contrib.auth import authenticate, get_user_model
 from django.contrib.auth.password_validation import validate_password
+from django.contrib.auth.hashers import check_password
 from rest_framework import serializers
 
 from .models import Address, Profile
@@ -30,23 +31,26 @@ class LoginSerializer(serializers.Serializer):
     def validate(self, attrs):
         username = attrs.get("username")
         password = attrs.get("password")
-        user = authenticate(
-            request=self.context.get("request"),
-            username=username,
-            password=password,
-        )
-        if not user and "@" in username:
-            try:
-                found = User.objects.get(email__iexact=username)
-            except User.DoesNotExist:
-                found = None
-            if found:
-                user = authenticate(request=self.context.get("request"), username=found.username, password=password)
+        lookup = {}
+        if "@" in username:
+            lookup["email__iexact"] = username
+        else:
+            lookup["username__iexact"] = username
+
+        user = User.objects.filter(**lookup).first()
         if not user:
-            raise serializers.ValidationError("Invalid email/username or password.")
+            message = "User does not exist." if "@" in username else "Username is incorrect."
+            raise serializers.ValidationError(message)
+        if not check_password(password, user.password):
+            raise serializers.ValidationError("Password is incorrect.")
         if not user.is_active:
             raise serializers.ValidationError("This account is inactive.")
-        attrs["user"] = user
+        authenticated = authenticate(
+            request=self.context.get("request"),
+            username=user.username,
+            password=password,
+        )
+        attrs["user"] = authenticated or user
         return attrs
 
 
