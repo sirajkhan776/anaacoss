@@ -19,9 +19,9 @@ services:
       - key: DJANGO_DEBUG
         value: "False"
       - key: DJANGO_ALLOWED_HOSTS
-        value: "anaacoss.in,www.anaacoss.in,.onrender.com,localhost,127.0.0.1"
+        value: "anaacoss.in,www.anaacoss.in,anaacoss.onrender.com,.onrender.com,localhost,127.0.0.1"
       - key: CSRF_TRUSTED_ORIGINS
-        value: "https://anaacoss.in,https://www.anaacoss.in"
+        value: "https://anaacoss.in,https://www.anaacoss.in,https://anaacoss.onrender.com"
       - key: DATABASE_URL
         fromDatabase:
           name: anaacoss-db
