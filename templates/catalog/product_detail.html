@@ -1,5 +1,35 @@
 {% extends "base.html" %}
 {% block title %}{{ product.name }} - Anaacoss{% endblock %}
+{% block meta_description %}{{ product.short_description }} Shop {{ product.name }} by {{ product.brand.name }} at Anaacoss with fast delivery, secure checkout, and premium beauty care.{% endblock %}
+{% block og_type %}product{% endblock %}
+{% block og_image %}{% with primary=product.images.all|first %}{% if primary and primary.url %}{{ primary.url }}{% else %}https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=1200&q=85{% endif %}{% endwith %}{% endblock %}
+{% block structured_data %}
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Product",
+      "name": "{{ product.name|escapejs }}",
+      "description": "{{ product.short_description|escapejs }}",
+      "sku": "{{ product.sku|escapejs }}",
+      "brand": {
+        "@type": "Brand",
+        "name": "{{ product.brand.name|escapejs }}"
+      },
+      "offers": {
+        "@type": "Offer",
+        "priceCurrency": "INR",
+        "price": "{{ product.final_price }}",
+        "availability": "{% if product.in_stock %}https://schema.org/InStock{% else %}https://schema.org/OutOfStock{% endif %}",
+        "url": "{{ request.build_absolute_uri }}"
+      },
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "{{ product.rating|default:'0' }}",
+        "reviewCount": "{{ product.review_count|default:'0' }}"
+      }
+    }
+  </script>
+{% endblock %}
 {% block content %}
 <section class="product-detail" data-product-detail data-product-id="{{ product.id }}">
   <div class="gallery">

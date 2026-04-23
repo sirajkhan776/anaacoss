@@ -2,10 +2,33 @@ const Storefront = (() => {
   const state = {
     access: localStorage.getItem("anaacoss_access"),
     refresh: localStorage.getItem("anaacoss_refresh"),
+    handlersBound: {
+      navigation: false,
+      products: false,
+      cart: false,
+    },
   };
 
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+  const defaultSearchSuggestions = [
+    { label: "Matte Lipstick", query: "lipstick", icon: "fa-solid fa-wand-magic-sparkles" },
+    { label: "Hydrating Serum", query: "serum", icon: "fa-solid fa-droplet" },
+    { label: "Daily Moisturizer", query: "moisturizer", icon: "fa-solid fa-spa" },
+    { label: "Full Coverage Foundation", query: "foundation", icon: "fa-solid fa-palette" },
+    { label: "Vitamin C Skincare", query: "skincare", icon: "fa-solid fa-sun" },
+  ];
+  const rotatingSearchTerms = [
+    "Mascara",
+    "Lipstick",
+    "Face Wash",
+    "Foundation",
+    "Serum",
+    "Moisturizer",
+    "Sunscreen",
+    "Kajal",
+    "Perfume",
+  ];
 
   function csrf() {
     const token = document.cookie.split("; ").find((row) => row.startsWith("csrftoken="));
@@ -71,15 +94,15 @@ const Storefront = (() => {
   }
 
   function bindNavigation() {
+    if (state.handlersBound.navigation) return;
+    state.handlersBound.navigation = true;
     document.addEventListener("click", (event) => {
       const link = event.target.closest("a[data-spa]");
       if (!link || link.origin !== location.origin) return;
       event.preventDefault();
       navigate(link.href);
-      $("[data-mobile-panel]")?.classList.remove("open");
     });
     window.addEventListener("popstate", () => navigate(location.href, false));
-    $("[data-menu-toggle]")?.addEventListener("click", () => $("[data-mobile-panel]")?.classList.toggle("open"));
   }
 
   function bindAuth() {
@@ -104,6 +127,7 @@ const Storefront = (() => {
           modal?.classList.remove("open");
           toast("Account ready");
           updateCartBadge();
+          updateWishlistBadge();
         } catch (error) {
           $("[data-auth-message]").textContent = flattenError(error);
         }
@@ -119,10 +143,28 @@ const Storefront = (() => {
   async function updateCartBadge() {
     try {
       const cart = await api("/api/cart/");
-      const count = $("[data-cart-count]");
-      if (count) count.textContent = cart.count || 0;
+      $$("[data-cart-count], [data-cart-count-mobile]").forEach((count) => {
+        count.textContent = cart.count || 0;
+      });
       renderCart(cart);
     } catch {
+      return null;
+    }
+  }
+
+  async function updateWishlistBadge() {
+    const counts = $$("[data-wishlist-count], [data-wishlist-count-mobile]");
+    if (!counts.length) return null;
+    if (!state.access) {
+      counts.forEach((count) => { count.textContent = 0; });
+      return 0;
+    }
+    try {
+      const wishlist = await api("/api/wishlist/");
+      counts.forEach((count) => { count.textContent = wishlist.length || 0; });
+      return wishlist.length || 0;
+    } catch {
+      counts.forEach((count) => { count.textContent = 0; });
       return null;
     }
   }
@@ -150,7 +192,35 @@ const Storefront = (() => {
       </article>`;
   }
 
+  function renderSearchSuggestions(items, query = "") {
+    const root = $("[data-suggestions]");
+    const box = $("[data-search-box]");
+    if (!root || !box) return;
+    if (!items.length) {
+      root.innerHTML = "";
+      root.classList.remove("open");
+      return;
+    }
+    root.innerHTML = items.map((item) => {
+      if (item.slug) {
+        return `
+          <a class="suggestion" href="/product/${item.slug}/" data-spa>
+            ${item.primary_image ? `<img src="${item.primary_image}" alt="${item.name}">` : `<div class="image-fallback"><i class="fa-solid fa-spa"></i></div>`}
+            <span><strong>${item.name}</strong><br>Rs. ${item.final_price}</span>
+          </a>`;
+      }
+      return `
+        <a class="suggestion" href="/shop/?q=${encodeURIComponent(item.query)}">
+          <div class="image-fallback"><i class="${item.icon}"></i></div>
+          <span><strong>${item.label}</strong><span class="suggestion-meta"><i class="fa-solid fa-arrow-trend-up"></i>${query ? `Search for ${item.query}` : "Trending beauty search"}</span></span>
+        </a>`;
+    }).join("");
+    root.classList.add("open");
+  }
+
   function bindProducts() {
+    if (state.handlersBound.products) return;
+    state.handlersBound.products = true;
     document.addEventListener("click", async (event) => {
       const add = event.target.closest("[data-add-cart]");
       if (add) {
@@ -170,6 +240,9 @@ const Storefront = (() => {
         event.preventDefault();
         try {
           const data = await api("/api/wishlist/toggle/", { method: "POST", body: JSON.stringify({ product_id: wish.dataset.wishlist }) });
+          $$("[data-wishlist-count], [data-wishlist-count-mobile]").forEach((count) => {
+            count.textContent = data.count || 0;
+          });
           toast(data.wishlisted ? "Saved to wishlist" : "Removed from wishlist");
         } catch {
           $("[data-auth-modal]")?.classList.add("open");
@@ -226,6 +299,9 @@ const Storefront = (() => {
 
   function bindCart() {
     updateCartBadge();
+    updateWishlistBadge();
+    if (state.handlersBound.cart) return;
+    state.handlersBound.cart = true;
     document.addEventListener("click", async (event) => {
       const inc = event.target.closest("[data-cart-inc]");
       const dec = event.target.closest("[data-cart-dec]");
@@ -283,22 +359,93 @@ const Storefront = (() => {
   }
 
   function bindSearch() {
-    const drawer = $("[data-search-drawer]");
-    $("[data-search-open]")?.addEventListener("click", () => drawer?.classList.add("open"));
-    $("[data-search-close]")?.addEventListener("click", () => drawer?.classList.remove("open"));
+    const box = $("[data-search-box]");
     const input = $("[data-search-input]");
+    const root = $("[data-suggestions]");
+    const placeholder = $("[data-search-placeholder]");
+    const mic = $("[data-search-mic]");
+    const camera = $("[data-search-camera]");
     let timer;
+    let rotatingIndex = 0;
+    let rotatingTimer = null;
+    if (!input || !root || !box || !placeholder) return;
+    const setPlaceholder = (text, entering = false) => {
+      placeholder.textContent = text;
+      placeholder.classList.remove("exit");
+      if (entering) placeholder.classList.add("visible");
+    };
+    const rotatePlaceholder = () => {
+      if (document.activeElement === input || input.value.trim()) return;
+      placeholder.classList.add("exit");
+      window.setTimeout(() => {
+        rotatingIndex = (rotatingIndex + 1) % rotatingSearchTerms.length;
+        setPlaceholder(rotatingSearchTerms[rotatingIndex], true);
+      }, 220);
+    };
+    setPlaceholder(rotatingSearchTerms[rotatingIndex], true);
+    rotatingTimer = window.setInterval(rotatePlaceholder, 3000);
+    input.addEventListener("focus", () => {
+      placeholder.classList.remove("visible", "exit");
+      root.classList.remove("open");
+    });
+    input.addEventListener("blur", () => {
+      window.setTimeout(() => {
+        if (!input.value.trim()) setPlaceholder(rotatingSearchTerms[rotatingIndex], true);
+      }, 120);
+    });
     input?.addEventListener("input", () => {
+      if (input.value.trim()) placeholder.classList.remove("visible", "exit");
       clearTimeout(timer);
       timer = setTimeout(async () => {
-        if (input.value.length < 2) return;
+        const query = input.value.trim();
+        if (query.length < 2) {
+          root.classList.remove("open");
+          root.innerHTML = "";
+          return;
+        }
         const data = await api(`/api/products/suggestions/?q=${encodeURIComponent(input.value)}`);
-        $("[data-suggestions]").innerHTML = data.map((product) => `
-          <a class="suggestion" href="/product/${product.slug}/" data-spa>
-            ${product.primary_image ? `<img src="${product.primary_image}" alt="${product.name}">` : ""}
-            <span><strong>${product.name}</strong><br>Rs. ${product.final_price}</span>
-          </a>`).join("");
+        renderSearchSuggestions(data.length ? data : defaultSearchSuggestions, query);
       }, 220);
+    });
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        const query = input.value.trim();
+        if (!query) return;
+        navigate(`/shop/?q=${encodeURIComponent(query)}`);
+        root.classList.remove("open");
+      }
+    });
+    document.addEventListener("click", (event) => {
+      if (!event.target.closest("[data-search-box]")) root.classList.remove("open");
+    });
+    mic?.addEventListener("click", () => {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        toast("Voice search is not supported on this browser");
+        return;
+      }
+      const recognition = new SpeechRecognition();
+      recognition.lang = "en-IN";
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+      recognition.onresult = (event) => {
+        const transcript = event.results?.[0]?.[0]?.transcript?.trim();
+        if (!transcript) return;
+        input.value = transcript;
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+      };
+      recognition.onerror = () => toast("Voice search could not start");
+      recognition.start();
+    });
+    camera?.addEventListener("change", () => {
+      const file = camera.files?.[0];
+      if (!file) return;
+      const matched = defaultSearchSuggestions.find((item) => file.name.toLowerCase().includes(item.query)) || defaultSearchSuggestions[0];
+      input.value = matched.query;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      toast(`Photo selected. Showing results for ${matched.label}`);
+      camera.value = "";
     });
   }
 
@@ -406,6 +553,7 @@ const Storefront = (() => {
   }
 
   function init() {
+    document.documentElement.classList.add("reveal-ready");
     bindNavigation();
     bindAuth();
     bindProducts();

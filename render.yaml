@@ -26,3 +26,5 @@ services:
         fromDatabase:
           name: anaacoss-db
           property: connectionString
+      - key: SITE_URL
+        value: "https://anaacoss.in"

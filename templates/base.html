@@ -4,13 +4,36 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Anaacoss is a premium cosmetics and skincare eCommerce experience.">
+  <meta name="description" content="{% block meta_description %}Anaacoss is a premium cosmetics and skincare eCommerce experience for skincare, makeup, fragrance, and modern beauty rituals.{% endblock %}">
+  <meta name="robots" content="{% block meta_robots %}index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1{% endblock %}">
+  <link rel="canonical" href="{% block canonical_url %}{{ request.build_absolute_uri }}{% endblock %}">
+  <meta property="og:site_name" content="Anaacoss">
+  <meta property="og:type" content="{% block og_type %}website{% endblock %}">
+  <meta property="og:title" content="{% block og_title %}Anaacoss - Luxury Beauty Atelier{% endblock %}">
+  <meta property="og:description" content="{% block og_description %}Anaacoss is a premium cosmetics and skincare eCommerce experience for skincare, makeup, fragrance, and modern beauty rituals.{% endblock %}">
+  <meta property="og:url" content="{{ request.build_absolute_uri }}">
+  <meta property="og:image" content="{% block og_image %}https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=1200&q=85{% endblock %}">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{% block twitter_title %}Anaacoss - Luxury Beauty Atelier{% endblock %}">
+  <meta name="twitter:description" content="{% block twitter_description %}Anaacoss is a premium cosmetics and skincare eCommerce experience for skincare, makeup, fragrance, and modern beauty rituals.{% endblock %}">
+  <meta name="twitter:image" content="{% block twitter_image %}https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=1200&q=85{% endblock %}">
+  <link rel="icon" type="image/svg+xml" href="{% static 'favicon.svg' %}">
   <title>{% block title %}Anaacoss - Luxury Beauty Atelier{% endblock %}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <link rel="stylesheet" href="{% static 'css/luxe.css' %}">
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "Anaacoss",
+      "url": "https://anaacoss.in",
+      "logo": "https://anaacoss.in/static/favicon.svg"
+    }
+  </script>
+  {% block structured_data %}{% endblock %}
   {% block extra_head %}{% endblock %}
 </head>
 <body>
@@ -21,46 +44,51 @@
   </div>
 
   <header class="site-header" data-header>
-    <a class="brand" href="/" data-spa>
-      <span class="brand-mark">A</span>
-      <span>Anaacoss</span>
-    </a>
-    <nav class="nav-links">
-      <a href="/shop/" data-spa>Shop</a>
-      {% for category in categories %}
-        <a href="{% url 'category' category.slug %}" data-spa>{{ category.name }}</a>
-      {% endfor %}
-      <a href="/offers/" data-spa>Offers</a>
-      <a href="/about/" data-spa>About</a>
-    </nav>
+    <div class="site-search" data-search-box>
+      <i class="fa-solid fa-magnifying-glass search-mark" aria-hidden="true"></i>
+      <div class="site-search-field">
+        <input class="site-search-input" type="search" data-search-input autocomplete="off" aria-label="Search products">
+        <span class="search-animated-placeholder" data-search-placeholder aria-hidden="true"></span>
+        <button class="search-tool-btn" type="button" data-search-mic aria-label="Voice search">
+          <i class="fa-solid fa-microphone"></i>
+        </button>
+        <label class="search-tool-btn search-tool-camera" aria-label="Search by photo">
+          <input type="file" accept="image/*" capture="environment" data-search-camera hidden>
+          <i class="fa-solid fa-camera"></i>
+        </label>
+      </div>
+      <div class="site-search-dropdown" data-suggestions></div>
+    </div>
     <div class="nav-actions">
-      <button class="icon-btn" type="button" data-search-open aria-label="Search"><i class="fa-solid fa-magnifying-glass"></i></button>
-      <a class="icon-btn" href="/wishlist/" data-spa aria-label="Wishlist"><i class="fa-regular fa-heart"></i></a>
-      <a class="icon-btn cart-link" href="/cart/" data-spa aria-label="Cart"><i class="fa-solid fa-bag-shopping"></i><span data-cart-count>0</span></a>
-      <button class="btn btn-dark btn-small" type="button" data-auth-open>Account</button>
-      <button class="icon-btn mobile-menu" type="button" data-menu-toggle aria-label="Menu"><i class="fa-solid fa-bars"></i></button>
+      <button class="icon-btn top-notification" type="button" aria-label="Notifications"><i class="fa-regular fa-bell"></i></button>
+      <a class="icon-btn cart-link" href="/wishlist/" data-spa aria-label="Wishlist"><i class="fa-regular fa-heart"></i><span data-wishlist-count>0</span></a>
+      <button class="icon-btn top-account" type="button" data-auth-open aria-label="Account"><i class="fa-regular fa-user"></i></button>
     </div>
   </header>
-
-  <div class="mobile-panel" data-mobile-panel>
-    <a href="/shop/" data-spa>Shop all</a>
-    <a href="/offers/" data-spa>Offers</a>
-    <a href="/dashboard/" data-spa>Dashboard</a>
-    <a href="/contact/" data-spa>Contact</a>
-  </div>
-
-  <aside class="search-drawer" data-search-drawer>
-    <div class="drawer-head">
-      <strong>Find your ritual</strong>
-      <button class="icon-btn" type="button" data-search-close><i class="fa-solid fa-xmark"></i></button>
-    </div>
-    <input class="lux-input" type="search" placeholder="Serum, lipstick, fragrance..." data-search-input>
-    <div class="suggestions" data-suggestions></div>
-  </aside>
 
   <main id="page-root">
     {% block content %}{% endblock %}
   </main>
+
+  <nav class="mobile-bottom-nav" aria-label="Mobile">
+    <a class="mobile-bottom-link" href="/" data-spa aria-label="Home">
+      <i class="fa-solid fa-house"></i>
+      <span>Home</span>
+    </a>
+    <a class="mobile-bottom-link" href="/shop/" data-spa aria-label="Shop">
+      <i class="fa-solid fa-store"></i>
+      <span>Shop</span>
+    </a>
+    <a class="mobile-bottom-link mobile-bottom-link-badge" href="/cart/" data-spa aria-label="Cart">
+      <i class="fa-solid fa-bag-shopping"></i>
+      <span data-cart-count-mobile>0</span>
+      <label>Cart</label>
+    </a>
+    <a class="mobile-bottom-link" href="/dashboard/" data-spa aria-label="My Orders">
+      <i class="fa-solid fa-box"></i>
+      <span>Orders</span>
+    </a>
+  </nav>
 
   <footer class="site-footer">
     <div>

@@ -25,6 +25,7 @@ def env_bool(name, default=False):
 
 SECRET_KEY = env("DJANGO_SECRET_KEY", "dev-only-change-me-with-at-least-32-bytes")
 DEBUG = env_bool("DJANGO_DEBUG", False)
+SITE_URL = env("SITE_URL", "https://anaacoss.in").rstrip("/")
 
 render_external_hostname = env("RENDER_EXTERNAL_HOSTNAME")
 default_allowed_hosts = "localhost,127.0.0.1,.onrender.com"
@@ -36,6 +37,7 @@ INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
+    "django.contrib.sitemaps",
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",

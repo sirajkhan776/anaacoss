@@ -106,7 +106,11 @@ class WishlistViewSet(viewsets.ModelViewSet):
         item, created = WishlistItem.objects.get_or_create(user=request.user, product=product)
         if not created:
             item.delete()
-        return Response({"wishlisted": created, "product_id": product.id})
+        return Response({
+            "wishlisted": created,
+            "product_id": product.id,
+            "count": WishlistItem.objects.filter(user=request.user).count(),
+        })
 
 
 class OrderViewSet(viewsets.ModelViewSet):
