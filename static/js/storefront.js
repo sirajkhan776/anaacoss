@@ -48,6 +48,7 @@ const Storefront = (() => {
     "Perfume",
   ];
   let authMessageTimer = null;
+  let sharePayload = null;
 
   function csrf() {
     const token = document.cookie.split("; ").find((row) => row.startsWith("csrftoken="));
@@ -306,6 +307,60 @@ const Storefront = (() => {
       if (key === "non_field_errors" || key === "detail") return text;
       return `${key}: ${text}`;
     }).join(" ");
+  }
+
+  async function copyToClipboard(value) {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(value);
+        return true;
+      }
+    } catch {}
+    const field = document.createElement("textarea");
+    field.value = value;
+    field.setAttribute("readonly", "");
+    field.style.position = "absolute";
+    field.style.left = "-9999px";
+    document.body.appendChild(field);
+    field.select();
+    const copied = document.execCommand("copy");
+    document.body.removeChild(field);
+    return copied;
+  }
+
+  function productSharePayload(trigger) {
+    const title = trigger.dataset.shareTitle || "Anaacoss";
+    const url = new URL(trigger.dataset.shareUrl || currentUrl(), window.location.origin).toString();
+    const text = trigger.dataset.shareText || `Check out ${title} on Anaacoss.`;
+    return { title, text, url };
+  }
+
+  async function openNativeShare(payload) {
+    if (!navigator.share) return false;
+    try {
+      await navigator.share(payload);
+      return true;
+    } catch (error) {
+      if (error?.name === "AbortError") return true;
+      return false;
+    }
+  }
+
+  function updateShareModal() {
+    const title = $("[data-share-modal-title]");
+    const copy = $("[data-share-modal-copy]");
+    const nativeBtn = $("[data-share-native]");
+    if (title) title.textContent = sharePayload?.title || "Share";
+    if (copy) copy.textContent = sharePayload ? `Send ${sharePayload.title} through WhatsApp, Instagram, or any other app.` : "Send this product through WhatsApp, Instagram, or any other app.";
+    if (nativeBtn) nativeBtn.hidden = !navigator.share;
+  }
+
+  async function openShare(trigger) {
+    sharePayload = productSharePayload(trigger);
+    const usedNative = await openNativeShare(sharePayload);
+    if (usedNative) return;
+    updateShareModal();
+    openModal($("[data-share-modal]"), trigger);
   }
 
   function renderSavedAddresses() {
@@ -782,6 +837,7 @@ const Storefront = (() => {
           <div class="quick-actions">
             <button type="button" data-add-cart="${product.id}"><i class="fa-solid fa-bag-shopping"></i></button>
             <button type="button" data-wishlist="${product.id}"><i class="fa-regular fa-heart"></i></button>
+            <button type="button" data-share-product data-share-title="${product.name}" data-share-text="Check out ${product.name} on Anaacoss." data-share-url="/product/${product.slug}/"><i class="fa-solid fa-share-nodes"></i></button>
             <button type="button" data-quick-view="${product.slug}"><i class="fa-solid fa-eye"></i></button>
           </div>
         </a>
@@ -855,6 +911,12 @@ const Storefront = (() => {
         });
       }
 
+      const share = event.target.closest("[data-share-product]");
+      if (share) {
+        event.preventDefault();
+        await openShare(share);
+      }
+
       const quick = event.target.closest("[data-quick-view]");
       if (quick) {
         event.preventDefault();
@@ -869,6 +931,47 @@ const Storefront = (() => {
           await navigate("/checkout/");
         });
       }
+    });
+  }
+
+  function bindShareModal() {
+    if (document.body.dataset.shareModalBound === "true") return;
+    document.body.dataset.shareModalBound = "true";
+    const modal = $("[data-share-modal]");
+    if (!modal) return;
+
+    const closeShareModal = () => closeModal(modal);
+    $$("[data-share-close]").forEach((btn) => btn.addEventListener("click", closeShareModal));
+    modal.addEventListener("click", (event) => {
+      if (event.target === modal) closeShareModal();
+    });
+
+    $("[data-share-native]")?.addEventListener("click", async () => {
+      if (!sharePayload) return;
+      const shared = await openNativeShare(sharePayload);
+      if (shared) closeShareModal();
+    });
+
+    $("[data-share-whatsapp]")?.addEventListener("click", () => {
+      if (!sharePayload) return;
+      const message = encodeURIComponent(`${sharePayload.text} ${sharePayload.url}`);
+      window.open(`https://wa.me/?text=${message}`, "_blank", "noopener,noreferrer");
+      closeShareModal();
+    });
+
+    $("[data-share-instagram]")?.addEventListener("click", async () => {
+      if (!sharePayload) return;
+      const copied = await copyToClipboard(sharePayload.url);
+      if (copied) toast("Link copied. Paste it in Instagram.");
+      window.open("https://www.instagram.com/", "_blank", "noopener,noreferrer");
+      closeShareModal();
+    });
+
+    $("[data-share-copy]")?.addEventListener("click", async () => {
+      if (!sharePayload) return;
+      const copied = await copyToClipboard(sharePayload.url);
+      toast(copied ? "Product link copied" : "Unable to copy link");
+      closeShareModal();
     });
   }
 
@@ -1130,85 +1233,6 @@ const Storefront = (() => {
       </article>`;
   }
 
-  function dashboardHtml(user, orders = [], addresses = []) {
-    const name = fullName(user);
-    const firstName = user?.first_name || user?.username || "Customer";
-    const orderRows = orders.length
-      ? orders.map((order) => `
-        <div class="order-line"><span>#${order.id} ${order.status}</span><strong>Rs. ${order.total}</strong></div>
-      `).join("")
-      : `<p>No orders yet.</p>`;
-    return `
-      <section class="account-page">
-        <article class="account-page-hero">
-          <div class="account-page-hero-top">
-            <div class="account-avatar"><i class="fa-regular fa-user"></i></div>
-            <div class="account-hero-copy">
-              <p class="eyebrow">My Account</p>
-              <h1>${name}</h1>
-              <p>Manage your profile, orders, wishlist and rewards.</p>
-            </div>
-          </div>
-          <div class="account-page-hero-meta">
-            <span class="account-page-badge"><i class="fa-solid fa-bag-shopping"></i> Orders</span>
-            <span class="account-page-badge"><i class="fa-regular fa-heart"></i> Wishlist</span>
-            <span class="account-page-badge"><i class="fa-regular fa-gem"></i> Rewards</span>
-          </div>
-        </article>
-        <button class="btn btn-dark" type="button">
-          <i class="fa-regular fa-gem"></i>
-          <span>Know more</span>
-        </button>
-        <article class="account-page-band">
-          <span>Shopping for ${firstName}</span>
-        </article>
-        <section class="account-grid">
-          <a class="account-shortcut" href="/dashboard/" data-spa>
-            <i class="fa-solid fa-box"></i>
-            <span>Orders</span>
-          </a>
-          <a class="account-shortcut" href="/contact/" data-spa>
-            <i class="fa-regular fa-circle-question"></i>
-            <span>Help Center</span>
-          </a>
-          <a class="account-shortcut" href="/offers/" data-spa>
-            <i class="fa-solid fa-ticket"></i>
-            <span>Coupons</span>
-          </a>
-          <button class="account-shortcut" type="button">
-            <i class="fa-regular fa-star"></i>
-            <span>Insider</span>
-          </button>
-          <button class="account-shortcut" type="button">
-            <i class="fa-solid fa-gear"></i>
-            <span>Settings</span>
-          </button>
-        </section>
-        <section class="dashboard-grid">
-          <article class="dashboard-card">
-            <h3>Order history</h3>
-            ${orderRows}
-          </article>
-          <article class="dashboard-card dashboard-address-card">
-            <div class="dashboard-address-head">
-              <div>
-                <h3>Saved addresses</h3>
-                <p>Manage your delivery destinations.</p>
-              </div>
-              <button class="btn btn-ghost btn-small" type="button" data-address-open>
-                <i class="fa-solid fa-plus"></i>
-                <span>Add address</span>
-              </button>
-            </div>
-            <div class="dashboard-address-list" data-profile-address-list>
-              ${profileAddressCards(addresses)}
-            </div>
-          </article>
-        </section>
-      </section>
-      ${profileAddressModalHtml()}`;
-  }
-
   function bindReviews() {
     const form = $("[data-review-form]");
     if (!form) return;
@@ -1284,17 +1308,44 @@ const Storefront = (() => {
     const user = await ensureUserProfile();
     if (!user) return;
     try {
-      const [orders, addresses] = await Promise.all([
-        api("/api/orders/", { silent: true }),
-        api("/api/auth/addresses/", { silent: true }),
-      ]);
+      const addresses = await api("/api/auth/addresses/", { silent: true });
       state.addresses = normalizeAddressList(addresses);
       state.selectedAddressId = (state.addresses.find((item) => item.is_default) || state.addresses[0] || {}).id || null;
-      root.innerHTML = dashboardHtml(user, orders.results || orders || [], state.addresses);
+      const list = $("[data-profile-address-list]");
+      if (list) list.innerHTML = profileAddressCards(state.addresses);
     } catch {
-      root.innerHTML = dashboardHtml(user, [], state.addresses);
+      state.addresses = [];
+      state.selectedAddressId = null;
+      const list = $("[data-profile-address-list]");
+      if (list) list.innerHTML = `<p class="profile-card-note">No saved addresses yet.</p>`;
     }
+    bindDashboardAddressManager();
     bindDashboardAddressModal();
+  }
+
+  function bindDashboardAddressManager() {
+    if (document.body.dataset.dashboardAddressManagerBound === "true") return;
+    document.body.dataset.dashboardAddressManagerBound = "true";
+    document.addEventListener("click", (event) => {
+      const toggle = event.target.closest("[data-address-manager-toggle], [data-section-toggle]");
+      if (!toggle) return;
+      event.preventDefault();
+      const target = $(`#${toggle.getAttribute("aria-controls")}`);
+      if (!target) return;
+      const shouldShow = target.hidden;
+      target.hidden = !shouldShow;
+      $$(`[aria-controls="${toggle.getAttribute("aria-controls")}"]`).forEach((item) => {
+        item.setAttribute("aria-expanded", String(shouldShow));
+      });
+      if (shouldShow) {
+        target.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    });
+    $$("[data-section-toggle], [data-address-manager-toggle]").forEach((item) => {
+      const target = $(`#${item.getAttribute("aria-controls")}`);
+      if (!target) return;
+      item.setAttribute("aria-expanded", String(!target.hidden));
+    });
   }
 
   function bindDashboardAddressModal() {
@@ -1555,6 +1606,7 @@ const Storefront = (() => {
     bindReviews();
     bindGallery();
     bindLocationModal();
+    bindShareModal();
     bindHomeHero();
     bindCategoryMarquee();
     bindDashboard();

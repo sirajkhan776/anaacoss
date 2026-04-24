@@ -1,74 +1,279 @@
 {% extends "base.html" %}
-{% block title %}Dashboard - Anaacoss{% endblock %}
+{% block title %}My Profile - Anaacoss{% endblock %}
+{% block extra_head %}
+<style>
+  .site-footer { display: none; }
+</style>
+{% endblock %}
 {% block content %}
 <div data-dashboard-root>
-{% if profile_user %}
-<section class="account-page">
-  <article class="account-page-hero">
-    <div class="account-page-hero-top">
-      <div class="account-avatar"><i class="fa-regular fa-user"></i></div>
-      <div class="account-hero-copy">
-        <p class="eyebrow">My Account</p>
-        <h1>{{ profile_user.get_full_name|default:profile_user.username }}</h1>
-        <p>Manage your profile, orders, wishlist and rewards.</p>
+<section class="profile-shell">
+  <article class="profile-premium-banner" id="profile-premium">
+    <div class="profile-premium-copy">
+      <p class="profile-premium-label">Anaacoss Insider</p>
+      <h1>
+        {% if profile_user %}
+          {{ profile_user.get_full_name|default:profile_user.first_name|default:profile_user.username }}
+        {% else %}
+          Guest User
+        {% endif %}
+      </h1>
+      <p class="profile-premium-text">Become an Insider to avail extra rewards and better discounts.</p>
+      <a class="btn profile-premium-btn" href="{% url 'offers' %}" data-spa>
+        <span>Know More</span>
+      </a>
+    </div>
+    <div class="profile-premium-crown" aria-hidden="true">
+      <i class="fa-solid fa-crown"></i>
+    </div>
+  </article>
+
+  <section class="profile-card">
+    <div class="profile-section-head">
+      <span>
+        Shopping for
+        {% if profile_user %}
+          {{ profile_user.first_name|default:profile_user.username }}
+        {% else %}
+          You
+        {% endif %}
+      </span>
+    </div>
+    <div class="profile-shopping-row">
+      <div class="profile-shopping-persona">
+        <div class="profile-avatar-ring">
+          {% if profile and profile.avatar %}
+            <img src="{{ profile.avatar.url }}" alt="{{ profile_user.get_full_name|default:profile_user.username }}">
+          {% elif profile_user %}
+            <span>{{ profile_user.first_name|default:profile_user.username|slice:":1"|upper }}</span>
+          {% else %}
+            <span>U</span>
+          {% endif %}
+        </div>
+        <strong>
+          {% if profile_user %}
+            {{ profile_user.first_name|default:profile_user.username }}
+          {% else %}
+            Your profile
+          {% endif %}
+        </strong>
       </div>
+      {% if profile_user %}
+        <a class="profile-add-tile" href="{% url 'cosmetic-profile' %}" data-spa aria-label="Add profile details">
+          <span class="profile-add-circle"><i class="fa-solid fa-plus"></i></span>
+          <span>Add</span>
+        </a>
+      {% else %}
+        <button class="profile-add-tile profile-add-button" type="button" data-auth-open data-auth-return-url="/dashboard/" aria-label="Login to add profile details">
+          <span class="profile-add-circle"><i class="fa-solid fa-plus"></i></span>
+          <span>Add</span>
+        </button>
+      {% endif %}
     </div>
-    <div class="account-page-hero-meta">
-      <span class="account-page-badge"><i class="fa-solid fa-bag-shopping"></i> Orders</span>
-      <span class="account-page-badge"><i class="fa-regular fa-heart"></i> Wishlist</span>
-      <span class="account-page-badge"><i class="fa-regular fa-gem"></i> Rewards</span>
+  </section>
+
+  <section class="profile-card">
+    <div class="profile-pill-row">
+      {% if profile_user %}
+        <a class="profile-beauty-pill" href="{% url 'cosmetic-profile' %}" data-spa>
+          <i class="fa-solid fa-wand-magic-sparkles"></i>
+          <span>Skin &amp; Hair</span>
+        </a>
+      {% else %}
+        <button class="profile-beauty-pill profile-pill-button" type="button" data-auth-open data-auth-return-url="/dashboard/profile/beauty/">
+          <i class="fa-solid fa-wand-magic-sparkles"></i>
+          <span>Skin &amp; Hair</span>
+        </button>
+      {% endif %}
+      {% if profile and profile.skin_type or profile and profile.skin_tone or profile and profile.skin_concern or profile and profile.hair_type or profile and profile.hair_concern %}
+        <span class="profile-status-chip">Profile saved</span>
+      {% endif %}
     </div>
-  </article>
-  <button class="btn btn-dark" type="button">
-    <i class="fa-regular fa-gem"></i>
-    <span>Know more</span>
-  </button>
-  <article class="account-page-band">
-    <span>Shopping for {{ profile_user.first_name|default:profile_user.username }}</span>
-  </article>
-  <section class="account-grid">
-    <a class="account-shortcut" href="/dashboard/" data-spa>
-      <i class="fa-solid fa-box"></i>
-      <span>Orders</span>
+    <p class="profile-card-note">Build your cosmetic profile for better beauty recommendations, routines, and product matches.</p>
+  </section>
+
+  <section class="profile-quick-grid">
+    {% if profile_user %}
+      <button class="profile-quick-action profile-quick-action-button" type="button" data-section-toggle aria-expanded="false" aria-controls="profile-orders-panel">
+        <i class="fa-solid fa-box-open"></i>
+        <span>Orders</span>
+      </button>
+    {% else %}
+      <button class="profile-quick-action profile-quick-action-button" type="button" data-auth-open data-auth-return-url="/dashboard/">
+        <i class="fa-solid fa-box-open"></i>
+        <span>Orders</span>
+      </button>
+    {% endif %}
+    <a class="profile-quick-action" href="#profile-premium">
+      <i class="fa-solid fa-crown"></i>
+      <span>Insider</span>
     </a>
-    <a class="account-shortcut" href="/contact/" data-spa>
+    <a class="profile-quick-action" href="{% url 'contact' %}" data-spa>
       <i class="fa-regular fa-circle-question"></i>
       <span>Help Center</span>
     </a>
-    <a class="account-shortcut" href="/offers/" data-spa>
+    <a class="profile-quick-action" href="{% url 'offers' %}" data-spa>
       <i class="fa-solid fa-ticket"></i>
       <span>Coupons</span>
     </a>
-    <button class="account-shortcut" type="button">
-      <i class="fa-regular fa-star"></i>
-      <span>Insider</span>
-    </button>
-    <button class="account-shortcut" type="button">
-      <i class="fa-solid fa-gear"></i>
-      <span>Settings</span>
-    </button>
   </section>
-  <section class="dashboard-grid">
-    <article class="dashboard-card">
-      <h3>Order history</h3>
-      {% for order in orders %}
-        <div class="order-line"><span>#{{ order.id }} {{ order.status }}</span><strong>Rs. {{ order.total }}</strong></div>
-      {% empty %}
-        <p>No orders yet.</p>
-      {% endfor %}
-    </article>
-    <article class="dashboard-card dashboard-address-card">
-      <div class="dashboard-address-head">
-        <div>
-          <h3>Saved addresses</h3>
-          <p>Manage your delivery destinations.</p>
-        </div>
-        <button class="btn btn-ghost btn-small" type="button" data-address-open>
-          <i class="fa-solid fa-plus"></i>
-          <span>Add address</span>
-        </button>
+
+  <section class="profile-accordion-stack">
+    <details class="profile-expandable" open>
+      <summary>
+        <span>Payments &amp; Currency</span>
+        <i class="fa-solid fa-angle-down"></i>
+      </summary>
+      <div class="profile-expandable-body">
+        <a href="{% url 'offers' %}" data-spa>Gift Cards</a>
+        <a href="{% url 'checkout' %}" data-spa>Saved Cards</a>
+        <a href="{% url 'checkout' %}" data-spa>Wallet</a>
       </div>
-      <div class="dashboard-address-list" data-profile-address-list>
+    </details>
+
+    <details class="profile-expandable">
+      <summary>
+        <span>Manage Account</span>
+        <i class="fa-solid fa-angle-down"></i>
+      </summary>
+      <div class="profile-expandable-body">
+        {% if profile_user %}
+          <button class="profile-inline-link profile-inline-toggle" type="button" data-section-toggle aria-expanded="{% if account_open %}true{% else %}false{% endif %}" aria-controls="profile-account-details">
+            <span>Account Details</span>
+            <i class="fa-solid fa-angle-down"></i>
+          </button>
+          <button class="profile-inline-link profile-inline-toggle" type="button" data-address-manager-toggle aria-expanded="false" aria-controls="profile-address-manager">
+            <span>Addresses</span>
+            <i class="fa-solid fa-angle-down"></i>
+          </button>
+        {% else %}
+          <button class="profile-inline-link profile-inline-toggle" type="button" data-auth-open data-auth-return-url="/dashboard/">
+            <span>Account Details</span>
+            <i class="fa-solid fa-angle-down"></i>
+          </button>
+          <button class="profile-inline-link profile-inline-toggle" type="button" data-auth-open data-auth-return-url="/dashboard/">
+            <span>Addresses</span>
+            <i class="fa-solid fa-angle-down"></i>
+          </button>
+        {% endif %}
+      </div>
+    </details>
+  </section>
+
+  <section class="profile-card profile-detail-panel" id="profile-account-details" data-detail-panel {% if not account_open %}hidden{% endif %}>
+    <div class="profile-section-head">
+      <span>Account Details</span>
+      <button class="profile-panel-close" type="button" data-section-toggle aria-expanded="{% if account_open %}true{% else %}false{% endif %}" aria-controls="profile-account-details" aria-label="Close account details">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+    {% if profile_user %}
+      <form class="profile-account-form" method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <input type="hidden" name="form_name" value="account-details">
+        <div class="profile-account-hero">
+          <div class="profile-account-hero-main">
+            <span class="profile-account-badge" aria-hidden="true"><i class="fa-solid fa-crown"></i></span>
+            <div class="profile-account-identity">
+              <label class="profile-account-avatar profile-account-avatar-upload">
+                {% if profile and profile.avatar %}
+                  <img src="{{ profile.avatar.url }}" alt="{{ profile_user.get_full_name|default:profile_user.username }}">
+                {% else %}
+                  <span>{{ profile_user.first_name|default:profile_user.username|slice:":1"|upper }}</span>
+                {% endif %}
+                <span class="profile-avatar-edit-badge"><i class="fa-solid fa-camera"></i></span>
+                {{ account_form.avatar }}
+              </label>
+              <div class="profile-account-copy">
+                <strong>{{ profile_user.get_full_name|default:profile_user.username }}</strong>
+                <span>Member Profile</span>
+              </div>
+            </div>
+          </div>
+          <div class="profile-account-hero-art" aria-hidden="true">
+            <i class="fa-solid fa-user-pen"></i>
+          </div>
+        </div>
+        <div class="profile-form-stack profile-form-shell">
+          <div class="profile-form-block">
+            <p class="profile-form-block-label">Personal Details</p>
+            <div class="form-grid">
+              <label class="profile-form-field">
+                <span>First Name</span>
+                {{ account_form.first_name }}
+              </label>
+              <label class="profile-form-field">
+                <span>Last Name</span>
+                {{ account_form.last_name }}
+              </label>
+            </div>
+            <label class="profile-form-field">
+              <span>Phone Number</span>
+              {{ account_form.phone }}
+            </label>
+            <label class="profile-form-field">
+              <span>Email</span>
+              {{ account_form.email }}
+            </label>
+          </div>
+          <div class="profile-detail-row profile-detail-row-soft">
+            <span>Beauty Profile</span>
+            <a href="{% url 'cosmetic-profile' %}" data-spa>Manage Skin &amp; Hair</a>
+          </div>
+        </div>
+        <button class="btn profile-account-save full" type="submit">
+          <i class="fa-solid fa-floppy-disk"></i>
+          <span>Save Details</span>
+        </button>
+        {% if account_saved %}
+          <p class="profile-inline-message">Account details updated.</p>
+        {% endif %}
+      </form>
+    {% else %}
+      <p class="profile-card-note">Login to view your account details.</p>
+    {% endif %}
+  </section>
+
+  <section class="profile-card profile-detail-panel" id="profile-orders-panel" data-detail-panel hidden>
+    <div class="profile-section-head">
+      <span>Orders</span>
+      <button class="profile-panel-close" type="button" data-section-toggle aria-expanded="false" aria-controls="profile-orders-panel" aria-label="Close orders">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+    <div class="profile-mini-list">
+      {% if profile_user %}
+        {% for order in orders %}
+          <div class="profile-mini-item">
+            <div>
+              <strong>#{{ order.id }}</strong>
+              <small>{{ order.status }}</small>
+            </div>
+            <span>Rs. {{ order.total }}</span>
+          </div>
+        {% empty %}
+          <p class="profile-card-note">No orders yet.</p>
+        {% endfor %}
+      {% else %}
+        <p class="profile-card-note">Login to view your orders.</p>
+      {% endif %}
+    </div>
+  </section>
+
+  <section class="profile-card profile-address-manager" id="profile-address-manager" data-address-manager hidden>
+    <div class="profile-section-head">
+      <span>Saved Addresses</span>
+      <div class="profile-address-manager-tools">
+        <button class="profile-panel-close" type="button" data-address-manager-toggle aria-expanded="false" aria-controls="profile-address-manager" aria-label="Close addresses">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+        {% if profile_user %}
+          <button class="btn btn-dark btn-small" type="button" data-address-open>Add New Address</button>
+        {% endif %}
+      </div>
+    </div>
+    <div class="profile-mini-list dashboard-address-list" data-profile-address-list>
+      {% if profile_user %}
         {% for address in addresses %}
           <article class="profile-address-card{% if address.is_default %} is-default{% endif %}">
             <div class="profile-address-top">
@@ -86,13 +291,85 @@
             </div>
           </article>
         {% empty %}
-          <p class="location-empty">No saved addresses yet.</p>
+          <p class="profile-card-note">No saved addresses yet.</p>
         {% endfor %}
-      </div>
-    </article>
+      {% else %}
+        <p class="profile-card-note">Login to manage your saved addresses.</p>
+      {% endif %}
+    </div>
   </section>
+
+  <section class="profile-card">
+    <div class="profile-section-head">
+      <span>Settings</span>
+    </div>
+    {% if profile_user %}
+      <form class="profile-settings-form" method="post">
+        {% csrf_token %}
+        <input type="hidden" name="form_name" value="notification-settings">
+        <label class="profile-switch-row" for="notifications-enabled">
+          <span>
+            <strong>Notifications</strong>
+            <small>Receive offer alerts, order updates, and curated beauty drops.</small>
+          </span>
+          <span class="profile-switch">
+            <input id="notifications-enabled" type="checkbox" name="notifications_enabled" {% if profile.notifications_enabled %}checked{% endif %}>
+            <span class="profile-switch-slider"></span>
+          </span>
+        </label>
+        <button class="btn btn-dark btn-small" type="submit">Save Settings</button>
+        {% if settings_saved %}
+          <p class="profile-inline-message">Notification preference updated.</p>
+        {% endif %}
+      </form>
+    {% else %}
+      <div class="profile-settings-form">
+        <label class="profile-switch-row">
+          <span>
+            <strong>Notifications</strong>
+            <small>Login to manage alerts, order updates, and curated beauty drops.</small>
+          </span>
+          <span class="profile-switch">
+            <input type="checkbox" checked disabled>
+            <span class="profile-switch-slider"></span>
+          </span>
+        </label>
+        <button class="btn btn-dark btn-small" type="button" data-auth-open data-auth-return-url="/dashboard/">Login to Manage</button>
+      </div>
+    {% endif %}
+  </section>
+
+  <section class="profile-footer-links">
+    <a href="{% url 'faq' %}" data-spa>FAQs</a>
+    <a href="{% url 'about' %}" data-spa>About Us</a>
+    <a href="{% url 'terms' %}" data-spa>Terms of Use</a>
+    <a href="{% url 'privacy-policy' %}" data-spa>Privacy Policy</a>
+    <a href="{% url 'privacy-center' %}" data-spa>Privacy Center</a>
+  </section>
+
+  {% if profile_user %}
+    <form class="profile-logout-form" id="profile-logout" method="post" action="{% url 'logout-page' %}">
+      {% csrf_token %}
+      <button class="btn profile-logout-btn full" type="submit">Log Out</button>
+    </form>
+  {% else %}
+    <div class="profile-logout-form" id="profile-logout">
+      <button class="btn profile-logout-btn full" type="button" data-auth-open data-auth-return-url="/dashboard/">Log Out</button>
+    </div>
+  {% endif %}
+
+  <div class="profile-brand-footer" aria-label="Anaacoss version 1.0.0">
+    <span class="profile-brand-footer-name">anaacoss</span>
+    <span class="profile-brand-footer-version">version 1.0.0</span>
+  </div>
+  <div class="profile-social-row" aria-label="Social media">
+    <a href="#" aria-label="Facebook"><i class="fa-brands fa-facebook-f"></i></a>
+    <a href="#" aria-label="YouTube"><i class="fa-brands fa-youtube"></i></a>
+    <a href="#" aria-label="Instagram"><i class="fa-brands fa-instagram"></i></a>
+  </div>
 </section>
 
+{% if profile_user %}
 <div class="modal-shell" data-address-modal aria-hidden="true">
   <div class="modal-card location-modal-card profile-address-modal" role="dialog" aria-modal="true" tabindex="-1">
     <button class="icon-btn modal-close" type="button" data-address-close><i class="fa-solid fa-xmark"></i></button>
@@ -125,14 +402,6 @@
     </form>
   </div>
 </div>
-{% else %}
-<section class="account-page account-page-guest">
-  <article class="dashboard-card">
-    <h3>Orders</h3>
-    <p data-profile-summary>Login to view your orders, saved addresses, and checkout details without losing your place.</p>
-    <button class="btn btn-dark" type="button" data-auth-open data-auth-return-url="/dashboard/">Login</button>
-  </article>
-</section>
 {% endif %}
 </div>
 {% endblock %}

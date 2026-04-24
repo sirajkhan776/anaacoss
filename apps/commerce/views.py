@@ -1,8 +1,11 @@
-from django.shortcuts import render
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import redirect, render
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 
+from apps.accounts.forms import AccountDetailsForm, CosmeticProfileForm, NotificationSettingsForm
+from apps.accounts.models import Profile
 from apps.catalog.models import Product, ProductVariant
 from apps.catalog.views import base_context
 
@@ -38,10 +41,49 @@ def offers_page(request):
 
 def dashboard_page(request):
     ctx = base_context()
+    profile = None
+    if request.user.is_authenticated:
+        profile, _ = Profile.objects.get_or_create(user=request.user)
+        if request.method == "POST" and request.POST.get("form_name") == "account-details":
+            account_form = AccountDetailsForm(request.POST, request.FILES, instance=request.user)
+            if account_form.is_valid():
+                account_form.save()
+                avatar = account_form.cleaned_data.get("avatar")
+                if avatar:
+                    profile.avatar = avatar
+                    profile.save(update_fields=["avatar"])
+                return redirect("/dashboard/?account_saved=1&account_open=1")
+        if request.method == "POST" and request.POST.get("form_name") == "notification-settings":
+            settings_form = NotificationSettingsForm(request.POST, instance=profile)
+            if settings_form.is_valid():
+                settings_form.save()
+                return redirect("/dashboard/?settings_saved=1")
     ctx["profile_user"] = request.user if request.user.is_authenticated else None
+    ctx["profile"] = profile
     ctx["orders"] = request.user.orders.prefetch_related("items")[:8] if request.user.is_authenticated else []
     ctx["addresses"] = request.user.addresses.all() if request.user.is_authenticated else []
+    ctx["account_form"] = AccountDetailsForm(instance=request.user) if request.user.is_authenticated else None
+    ctx["account_saved"] = request.GET.get("account_saved") == "1"
+    ctx["account_open"] = request.GET.get("account_open") == "1"
+    ctx["settings_saved"] = request.GET.get("settings_saved") == "1"
     return render(request, "account/dashboard.html", ctx)
+
+
+@login_required
+def cosmetic_profile_page(request):
+    ctx = base_context()
+    profile, _ = Profile.objects.get_or_create(user=request.user)
+    form = CosmeticProfileForm(request.POST or None, instance=profile)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        return redirect("/dashboard/profile/beauty/?saved=1")
+    ctx.update(
+        {
+            "cosmetic_form": form,
+            "cosmetic_saved": request.GET.get("saved") == "1",
+        }
+    )
+    return render(request, "account/cosmetic_profile.html", ctx)
 
 
 @api_view(["GET"])

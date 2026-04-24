@@ -19,6 +19,18 @@ def faq(request):
     return render(request, "content/faq.html", base_context())
 
 
+def terms(request):
+    return render(request, "content/terms.html", base_context())
+
+
+def privacy_policy(request):
+    return render(request, "content/privacy_policy.html", base_context())
+
+
+def privacy_center(request):
+    return render(request, "content/privacy_center.html", base_context())
+
+
 class BannerViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Banner.objects.filter(is_active=True)
     serializer_class = BannerSerializer

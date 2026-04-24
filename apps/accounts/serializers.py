@@ -57,7 +57,17 @@ class LoginSerializer(serializers.Serializer):
 class ProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Profile
-        fields = ("avatar", "skin_type", "beauty_goals", "birth_date")
+        fields = (
+            "avatar",
+            "skin_type",
+            "skin_tone",
+            "skin_concern",
+            "hair_type",
+            "hair_concern",
+            "beauty_goals",
+            "birth_date",
+            "notifications_enabled",
+        )
 
 
 class UserSerializer(serializers.ModelSerializer):

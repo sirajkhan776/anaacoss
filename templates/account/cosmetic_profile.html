@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Skin & Hair Profile - Anaacoss{% endblock %}
+{% block extra_head %}
+<style>
+  .site-footer { display: none; }
+</style>
+{% endblock %}
+{% block content %}
+<section class="profile-shell">
+  <article class="cosmetic-profile-card">
+    <a class="cosmetic-back-link" href="{% url 'dashboard' %}" data-spa>
+      <i class="fa-solid fa-arrow-left"></i>
+      <span>Back to Profile</span>
+    </a>
+    <div class="cosmetic-profile-head">
+      <p class="profile-premium-label">Beauty Profile</p>
+      <h1>Skin &amp; Hair</h1>
+      <p>Tell us about your skin and hair so we can personalize your Anaacoss experience.</p>
+    </div>
+    <form class="cosmetic-profile-form" method="post">
+      {% csrf_token %}
+      <div class="cosmetic-profile-grid">
+        <label>
+          <span>Skin type</span>
+          {{ cosmetic_form.skin_type }}
+        </label>
+        <label>
+          <span>Skin color/tone</span>
+          {{ cosmetic_form.skin_tone }}
+        </label>
+        <label>
+          <span>Skin concern</span>
+          {{ cosmetic_form.skin_concern }}
+        </label>
+        <label>
+          <span>Hair type</span>
+          {{ cosmetic_form.hair_type }}
+        </label>
+        <label>
+          <span>Hair concern</span>
+          {{ cosmetic_form.hair_concern }}
+        </label>
+      </div>
+      {% if cosmetic_saved %}
+        <p class="profile-inline-message">Your cosmetic profile has been saved.</p>
+      {% endif %}
+      <button class="btn btn-dark full" type="submit">Save Details</button>
+    </form>
+  </article>
+</section>
+{% endblock %}

@@ -12,8 +12,8 @@ class CustomUserAdmin(UserAdmin):
 
 @admin.register(Profile)
 class ProfileAdmin(admin.ModelAdmin):
-    list_display = ("user", "skin_type", "beauty_goals", "created_at")
-    search_fields = ("user__username", "user__email", "skin_type")
+    list_display = ("user", "skin_type", "hair_type", "notifications_enabled", "created_at")
+    search_fields = ("user__username", "user__email", "skin_type", "skin_tone", "hair_type")
 
 
 @admin.register(Address)

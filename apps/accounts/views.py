@@ -1,4 +1,5 @@
 from django.contrib.auth import login, logout
+from django.shortcuts import redirect
 from rest_framework import generics, permissions, status, viewsets
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
@@ -58,6 +59,12 @@ def logout_view(request):
             pass
     logout(request)
     return Response({"detail": "Logged out."})
+
+
+@api_view(["POST"])
+def logout_page(request):
+    logout(request)
+    return redirect("dashboard")
 
 
 class AddressViewSet(viewsets.ModelViewSet):
