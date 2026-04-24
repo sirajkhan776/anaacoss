@@ -174,6 +174,7 @@ const Storefront = (() => {
   function syncPageChrome() {
     const current = normalizeNavPath(window.location.pathname);
     document.body.classList.toggle("cart-page-active", current === "/cart/");
+    document.body.classList.toggle("checkout-flow-active", window.location.pathname.startsWith("/checkout"));
   }
 
   function fullName(user) {
@@ -240,12 +241,85 @@ const Storefront = (() => {
     if (!form) return;
     const addressField = $("[data-checkout-address-input]", form);
     const note = $("[data-checkout-address-note]");
-    if (addressField) addressField.value = address?.id || "";
+    if (addressField && address?.id) addressField.value = address.id;
     if (note) {
       note.textContent = address
         ? `Delivering to ${address.full_name} at ${address.label}.`
         : "Select or add an address before placing your order.";
     }
+  }
+
+  function selectedItemIdsFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    const items = params.get("items") || "";
+    return items.split(",").map((item) => item.trim()).filter(Boolean);
+  }
+
+  function syncSelectedAddressCard(address) {
+    const card = $("[data-checkout-selected-card]");
+    if (!card || !address) return;
+    card.dataset.addressId = address.id;
+    const name = $("[data-selected-address-name]", card);
+    const line = $("[data-selected-address-line]", card);
+    const phone = $("[data-selected-address-phone]", card);
+    if (name) name.textContent = address.full_name;
+    if (line) line.textContent = addressFullText(address);
+    if (phone) phone.textContent = address.phone || "";
+    const tags = $(".checkout-selected-address-tags", card);
+    if (tags) {
+      tags.innerHTML = `${address.is_default ? '<span class="checkout-address-default">Default</span>' : ""}<span class="checkout-address-tag">${(address.label || "Home").toUpperCase()}</span>`;
+    }
+    card.classList.remove("checkout-selected-address-empty");
+  }
+
+  function syncCheckoutContinueLink(page) {
+    const continueButton = $("[data-checkout-continue]", page);
+    if (!continueButton) return;
+    const selectedIds = selectedItemIdsFromUrl();
+    const addressId = state.selectedAddressId || $("[data-checkout-selected-card]", page)?.dataset.addressId;
+    const params = new URLSearchParams();
+    if (selectedIds.length) params.set("items", selectedIds.join(","));
+    if (addressId) params.set("address", String(addressId));
+    continueButton.setAttribute("href", `${continueButton.dataset.checkoutPaymentUrl}?${params.toString()}`);
+  }
+
+  async function startUpiPayment(appName) {
+    const page = $("[data-payment-page]");
+    const form = $("[data-checkout-form]", page || document);
+    if (!page || !form) return;
+    const addressId = form.elements.namedItem("address_id")?.value || page.dataset.paymentAddressId;
+    const selectedIds = selectedItemIdsFromUrl();
+    if (!addressId) {
+      toast("Select a saved address to continue");
+      return;
+    }
+    if (!selectedIds.length) {
+      toast("Please select at least one item.");
+      return;
+    }
+    const button = $(`[data-upi-pay="${appName}"]`, page);
+    await withLockedButton(button, async () => {
+      try {
+        const data = await api("/api/orders/start-upi/", {
+          method: "POST",
+          body: JSON.stringify({
+            app_name: appName,
+            address_id: addressId,
+            selected_item_ids: selectedIds,
+          }),
+        });
+        toast(`Opening ${data.selected_payment_method}`);
+        window.setTimeout(() => {
+          window.location.href = data.pending_url;
+        }, 1800);
+        window.location.href = data.intent_url;
+        window.setTimeout(() => {
+          window.location.href = data.fallback_url;
+        }, 900);
+      } catch (error) {
+        toast(flattenError(error));
+      }
+    });
   }
 
   async function api(url, options = {}) {
@@ -1623,11 +1697,12 @@ const Storefront = (() => {
         event.preventDefault();
         const items = selectedCartItems();
         if (!items.length) {
-          toast("Select at least one item to place the order");
+          toast("Please select at least one item.");
           return;
         }
         saveCartSelection();
-        await navigate("/checkout/");
+        const params = new URLSearchParams({ items: items.map((item) => item.id).join(",") });
+        await navigate(`/checkout/?${params.toString()}`);
       }
     });
 
@@ -1675,12 +1750,17 @@ const Storefront = (() => {
   }
 
   function bindCheckout() {
+    if ($("[data-checkout-address-page]")) return;
     const list = $("[data-checkout-address-list]");
     const form = $("[data-checkout-form]");
     if (!form && !list) return;
+    const urlAddressId = new URLSearchParams(window.location.search).get("address");
+    const existingAddressId = form?.elements?.namedItem?.("address_id")?.value || urlAddressId;
+    if (existingAddressId && !state.selectedAddressId) state.selectedAddressId = existingAddressId;
     fillCheckoutForm(state.user, selectedAddress());
     if (list) {
       refreshAddresses({ silent: true }).then(() => {
+        if (urlAddressId) state.selectedAddressId = urlAddressId;
         list.innerHTML = checkoutAddressCards(state.addresses);
         fillCheckoutForm(state.user, selectedAddress());
       }).catch(() => null);
@@ -1757,10 +1837,9 @@ const Storefront = (() => {
       await withLockedButton(submitter, async () => {
         try {
           const payload = Object.fromEntries(new FormData(form).entries());
-          payload.selected_item_ids = JSON.parse(localStorage.getItem("anaacoss_cart_selected") || "[]");
-          if (!payload.selected_item_ids.length && state.cart?.items?.length) {
-            payload.selected_item_ids = state.cart.items.map((item) => item.id);
-          }
+          payload.selected_item_ids = selectedItemIdsFromUrl();
+          if (!payload.selected_item_ids.length) payload.selected_item_ids = JSON.parse(localStorage.getItem("anaacoss_cart_selected") || "[]");
+          if (!payload.selected_item_ids.length && state.cart?.items?.length) payload.selected_item_ids = state.cart.items.map((item) => item.id);
           const data = await api("/api/orders/", { method: "POST", body: JSON.stringify(payload) });
           toast(`Order #${data.id} placed`);
           localStorage.removeItem("anaacoss_cart_selected");
@@ -1772,6 +1851,112 @@ const Storefront = (() => {
         }
       });
     });
+  }
+
+  function bindCheckoutAddressPage() {
+    const page = $("[data-checkout-address-page]");
+    if (!page || page.dataset.bound === "true") return;
+    page.dataset.bound = "true";
+    const list = $("[data-checkout-address-list]", page);
+    const toggle = $("[data-checkout-change]", page);
+    const continueButton = $("[data-checkout-continue]", page);
+    refreshAddresses({ silent: true }).then(() => {
+      if (!state.selectedAddressId) {
+        const selectedCard = $("[data-checkout-selected-card]", page);
+        if (selectedCard?.dataset.addressId) state.selectedAddressId = selectedCard.dataset.addressId;
+      }
+      syncCheckoutContinueLink(page);
+    }).catch(() => null);
+    if (toggle && list) {
+      toggle.addEventListener("click", () => {
+        const hidden = list.hasAttribute("hidden");
+        if (hidden) list.removeAttribute("hidden");
+        else list.setAttribute("hidden", "");
+      });
+    }
+    if (list) {
+      list.addEventListener("change", (event) => {
+        const input = event.target.closest('input[name="checkout_address"]');
+        if (!input) return;
+        const address = state.addresses.find((item) => String(item.id) === String(input.value));
+        if (!address) return;
+        state.selectedAddressId = address.id;
+        $$("label.checkout-address-picker-item", list).forEach((item) => {
+          item.classList.toggle("is-selected", String($("input", item)?.value) === String(address.id));
+        });
+        syncSelectedAddressCard(address);
+        syncCheckoutContinueLink(page);
+        list.setAttribute("hidden", "");
+      });
+    }
+    if (continueButton) {
+      continueButton.addEventListener("click", async (event) => {
+        const selectedIds = selectedItemIdsFromUrl();
+        if (!selectedIds.length) {
+          event.preventDefault();
+          toast("Please select at least one item.");
+          return;
+        }
+        const addressId = state.selectedAddressId || $("[data-checkout-selected-card]", page)?.dataset.addressId;
+        if (!addressId) {
+          event.preventDefault();
+          toast("Select a saved address to continue");
+          return;
+        }
+        syncCheckoutContinueLink(page);
+      });
+    }
+  }
+
+  function bindPaymentPage() {
+    const page = $("[data-payment-page]");
+    if (!page || page.dataset.bound === "true") return;
+    page.dataset.bound = "true";
+    const stickyPlaceOrder = $("[data-payment-place-order]");
+    const syncPaymentState = () => {
+      const selected = $('input[name="payment_method"]:checked', page);
+      const isCod = !selected || selected.value === "cod";
+      if (stickyPlaceOrder) {
+        stickyPlaceOrder.hidden = !isCod;
+        stickyPlaceOrder.disabled = !isCod;
+      }
+    };
+
+    $$("[data-payment-toggle]", page).forEach((toggle) => {
+      toggle.addEventListener("click", () => {
+        const item = toggle.closest(".payment-accordion-item");
+        const panel = item ? $(`#${toggle.getAttribute("aria-controls")}`) : null;
+        if (!item || !panel) return;
+        const shouldOpen = !item.classList.contains("is-open");
+        item.classList.toggle("is-open", shouldOpen);
+        toggle.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
+        panel.hidden = !shouldOpen;
+      });
+    });
+
+    page.addEventListener("change", (event) => {
+      if (event.target.matches('input[name="payment_method"]')) {
+        syncPaymentState();
+      }
+    });
+
+    page.addEventListener("click", (event) => {
+      const payBtn = event.target.closest("[data-upi-pay]");
+      if (!payBtn) return;
+      event.preventDefault();
+      startUpiPayment(payBtn.dataset.upiPay);
+    });
+
+    const summaryToggle = $("[data-payment-summary-toggle]", page.parentElement || document);
+    const summaryPanel = $("#payment-summary-panel");
+    if (summaryToggle && summaryPanel) {
+      summaryToggle.addEventListener("click", () => {
+        const expanded = summaryToggle.getAttribute("aria-expanded") === "true";
+        summaryToggle.setAttribute("aria-expanded", expanded ? "false" : "true");
+        summaryPanel.hidden = expanded;
+      });
+    }
+    syncPaymentState();
   }
 
   function bindAddressPage() {
@@ -2296,7 +2481,9 @@ const Storefront = (() => {
   function bindPage() {
     bindFilters();
     bindCart();
+    bindCheckoutAddressPage();
     bindCheckout();
+    bindPaymentPage();
     bindNewsletter();
     bindReviews();
     bindGallery();

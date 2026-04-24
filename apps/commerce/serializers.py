@@ -60,6 +60,8 @@ class OrderSerializer(serializers.ModelSerializer):
         fields = (
             "id",
             "status",
+            "payment_status",
+            "selected_payment_method",
             "full_name",
             "email",
             "phone",
@@ -76,4 +78,4 @@ class OrderSerializer(serializers.ModelSerializer):
             "created_at",
             "items",
         )
-        read_only_fields = ("status", "subtotal", "discount", "shipping", "total", "created_at")
+        read_only_fields = ("status", "payment_status", "selected_payment_method", "subtotal", "discount", "shipping", "total", "created_at")

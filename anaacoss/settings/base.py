@@ -153,3 +153,6 @@ AUTH_COOKIE_SAMESITE = env("AUTH_COOKIE_SAMESITE", "Lax")
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+
+ADMIN_UPI_ID = env("ADMIN_UPI_ID", "")
+ADMIN_NAME = env("ADMIN_NAME", "Anaacoss")

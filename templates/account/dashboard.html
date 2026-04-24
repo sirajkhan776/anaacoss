@@ -58,15 +58,27 @@
           {% endif %}
         </strong>
       </div>
+      {% for shopping_profile in shopping_profiles %}
+        <div class="profile-shopping-persona">
+          <div class="profile-avatar-ring">
+            {% if shopping_profile.avatar %}
+              <img src="{{ shopping_profile.avatar.url }}" alt="{{ shopping_profile.first_name }} {{ shopping_profile.last_name }}">
+            {% else %}
+              <span>{{ shopping_profile.first_name|slice:":1"|upper }}</span>
+            {% endif %}
+          </div>
+          <strong>{{ shopping_profile.first_name }}</strong>
+        </div>
+      {% endfor %}
       {% if profile_user %}
-        <a class="profile-add-tile" href="{% url 'cosmetic-profile' %}" data-spa aria-label="Add profile details">
+        <a class="profile-add-tile" href="{% url 'profile-details' %}" data-spa aria-label="Add profile details">
           <span class="profile-add-circle"><i class="fa-solid fa-plus"></i></span>
-          <span>Add</span>
+          <span>Add New</span>
         </a>
       {% else %}
-        <button class="profile-add-tile profile-add-button" type="button" data-auth-open data-auth-return-url="/dashboard/" aria-label="Login to add profile details">
+        <button class="profile-add-tile profile-add-button" type="button" data-auth-open data-auth-return-url="/dashboard/profile/details/" aria-label="Login to add profile details">
           <span class="profile-add-circle"><i class="fa-solid fa-plus"></i></span>
-          <span>Add</span>
+          <span>Add New</span>
         </button>
       {% endif %}
     </div>

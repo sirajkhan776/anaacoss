@@ -1,76 +1,130 @@
 {% extends "base.html" %}
-{% block title %}Checkout - Anaacoss{% endblock %}
+{% block title %}Address - Anaacoss{% endblock %}
+{% block extra_head %}
+<style>
+  .top-ribbon,
+  .site-header {
+    display: none !important;
+  }
+</style>
+{% endblock %}
 {% block content %}
-<section class="page-hero compact"><p class="eyebrow">Secure checkout</p><h1>Complete your order</h1></section>
-<section class="checkout-layout checkout-address-layout" data-checkout-root>
-  <div class="checkout-stage">
-    <section class="checkout-address-panel">
-      <div class="checkout-address-head">
-        <div>
-          <p class="eyebrow">Delivery address</p>
-          <h2>Choose a saved address</h2>
-        </div>
-        <a class="btn btn-dark btn-small" href="{% url 'add-address' %}?return=/checkout/" data-spa>Add New Address</a>
-      </div>
+<section class="checkout-flow-page checkout-address-page" data-checkout-address-page data-selected-items="{{ checkout_item_ids }}">
+  <header class="checkout-flow-header">
+    <a class="checkout-flow-back" href="{% url 'cart' %}" data-spa aria-label="Back to bag">
+      <i class="fa-solid fa-arrow-left"></i>
+    </a>
+    <h1>ADDRESS</h1>
+  </header>
 
-      <div class="checkout-address-list" data-checkout-address-list>
-        {% for address in addresses %}
-          <article class="checkout-address-card{% if selected_address and selected_address.id == address.id %} is-selected{% endif %}{% if address.is_default %} is-default{% endif %}" data-checkout-address-card="{{ address.id }}">
-            <label class="checkout-address-select">
-              <input type="radio" name="checkout_address" value="{{ address.id }}" {% if selected_address and selected_address.id == address.id %}checked{% endif %}>
-              <span class="checkout-address-radio"></span>
-              <span class="checkout-address-copy">
-                <span class="checkout-address-topline">
-                  <strong>{{ address.full_name }}</strong>
-                  <span class="checkout-address-tag">{{ address.label }}</span>
-                  {% if address.is_default %}<span class="checkout-address-default">Default</span>{% endif %}
-                </span>
-                <span>{{ address.phone }}</span>
-                <p>{{ address.line1 }}{% if address.line2 %}, {{ address.line2 }}{% endif %}, {{ address.city }}, {{ address.state }} {{ address.postal_code }}</p>
-              </span>
-            </label>
-            <div class="checkout-address-actions">
-              {% if not address.is_default %}
-                <button class="btn btn-ghost btn-small" type="button" data-checkout-address-default="{{ address.id }}">Set Default</button>
-              {% endif %}
-              <a class="btn btn-ghost btn-small" href="{% url 'edit-address' address.id %}?return=/checkout/" data-spa>Edit</a>
-              <button class="btn btn-ghost btn-small checkout-address-delete" type="button" data-checkout-address-delete="{{ address.id }}">Delete</button>
-            </div>
-          </article>
-        {% empty %}
-          <div class="checkout-address-empty">
-            <p>No saved addresses yet.</p>
-            <a class="btn btn-dark btn-small" href="{% url 'add-address' %}?return=/checkout/" data-spa>Add your first address</a>
-          </div>
-        {% endfor %}
-      </div>
-    </section>
-
-    <form class="checkout-form checkout-payment-panel" data-checkout-form>
-      <input type="hidden" name="address_id" value="{% if selected_address %}{{ selected_address.id }}{% endif %}" data-checkout-address-input>
-      <div class="checkout-payment-head">
-        <p class="eyebrow">Payment method</p>
-        <h3>Choose how you want to pay</h3>
-      </div>
-      <div class="payment-methods">
-        <label><input type="radio" name="payment_method" value="cod" checked> Pay on delivery</label>
-        <label><input type="radio" name="payment_method" value="card"> Card placeholder</label>
-        <label><input type="radio" name="payment_method" value="upi"> UPI placeholder</label>
-      </div>
-      <p class="form-note checkout-address-note" data-checkout-address-note>
-        {% if selected_address %}
-          Delivering to {{ selected_address.full_name }} at {{ selected_address.label }}.
-        {% else %}
-          Select or add an address before placing your order.
-        {% endif %}
-      </p>
-      <button class="btn btn-dark" type="submit">Place order</button>
-    </form>
+  <div class="checkout-progress" aria-label="Checkout progress">
+    <div class="checkout-progress-step is-complete">
+      <span class="checkout-progress-icon"><i class="fa-solid fa-check"></i></span>
+      <span>Bag</span>
+    </div>
+    <span class="checkout-progress-line is-complete"></span>
+    <div class="checkout-progress-step is-active">
+      <span class="checkout-progress-icon">2</span>
+      <span>Address</span>
+    </div>
+    <span class="checkout-progress-line"></span>
+    <div class="checkout-progress-step">
+      <span class="checkout-progress-icon">3</span>
+      <span>Payment</span>
+    </div>
   </div>
 
-  <aside class="summary-card">
-    <h3>Ritual summary</h3>
-    <div data-cart-summary></div>
-  </aside>
+  <section class="checkout-flow-card">
+    <div class="checkout-flow-card-head">
+      <div>
+        <p class="checkout-flow-eyebrow">Delivery address</p>
+        <h2>Select delivery address</h2>
+      </div>
+      <button class="checkout-change-btn" type="button" data-checkout-change>Change</button>
+    </div>
+
+    {% if selected_address %}
+      <article class="checkout-selected-address" data-checkout-selected-card data-address-id="{{ selected_address.id }}">
+        <div class="checkout-selected-address-top">
+          <strong data-selected-address-name>{{ selected_address.full_name }}</strong>
+          <div class="checkout-selected-address-tags">
+            {% if selected_address.is_default %}<span class="checkout-address-default">Default</span>{% endif %}
+            <span class="checkout-address-tag">{{ selected_address.label|upper }}</span>
+          </div>
+        </div>
+        <p data-selected-address-line>{{ selected_address.line1 }}{% if selected_address.line2 %}, {{ selected_address.line2 }}{% endif %}, {{ selected_address.city }}, {{ selected_address.state }} {{ selected_address.postal_code }}</p>
+        <span class="checkout-selected-address-phone">Mobile: <span data-selected-address-phone>{{ selected_address.phone }}</span></span>
+      </article>
+    {% else %}
+      <article class="checkout-selected-address checkout-selected-address-empty" data-checkout-selected-card>
+        <strong>No saved address available</strong>
+        <p>Add an address to continue to payment.</p>
+      </article>
+    {% endif %}
+
+    <div class="checkout-address-picker" data-checkout-address-list hidden>
+      {% for address in addresses %}
+        <label class="checkout-address-picker-item{% if selected_address and selected_address.id == address.id %} is-selected{% endif %}">
+          <input type="radio" name="checkout_address" value="{{ address.id }}" {% if selected_address and selected_address.id == address.id %}checked{% endif %}>
+          <span class="checkout-address-picker-copy">
+            <strong>{{ address.full_name }}</strong>
+            <span>{{ address.label }}{% if address.is_default %} · Default{% endif %}</span>
+            <p>{{ address.line1 }}{% if address.line2 %}, {{ address.line2 }}{% endif %}, {{ address.city }}, {{ address.state }} {{ address.postal_code }}</p>
+            <small>{{ address.phone }}</small>
+          </span>
+        </label>
+      {% empty %}
+        <div class="checkout-address-empty-state">
+          <p>No saved addresses yet.</p>
+        </div>
+      {% endfor %}
+      <a class="checkout-add-address" href="{% url 'add-address' %}?return={{ checkout_return_url|urlencode }}" data-spa>
+        <i class="fa-solid fa-plus"></i>
+        <span>Add New Address</span>
+      </a>
+    </div>
+  </section>
+
+  <section class="checkout-flow-card">
+    <div class="checkout-flow-card-head">
+      <div>
+        <p class="checkout-flow-eyebrow">Delivery estimates</p>
+        <h2>DELIVERY ESTIMATES</h2>
+      </div>
+    </div>
+    <div class="checkout-delivery-list">
+      {% for item in checkout_items %}
+        <article class="checkout-delivery-item">
+          <div class="checkout-delivery-thumb">
+            {% with primary=item.product.images.all|first %}
+              {% if primary and primary.url %}
+                <img src="{{ primary.url }}" alt="{{ item.product.name }}">
+              {% else %}
+                <div class="image-fallback"><i class="fa-solid fa-bag-shopping"></i></div>
+              {% endif %}
+            {% endwith %}
+          </div>
+          <div class="checkout-delivery-copy">
+            <strong>{{ item.product.name }}</strong>
+            <span>Estimated delivery by {{ delivery_estimate|date:"D, d M" }}</span>
+          </div>
+        </article>
+      {% empty %}
+        <p class="checkout-empty-copy">No selected items in your bag.</p>
+      {% endfor %}
+    </div>
+  </section>
 </section>
+
+<div class="checkout-sticky-bar">
+  <a
+    class="btn checkout-sticky-btn"
+    href="{% url 'payment' %}?items={{ checkout_item_ids }}{% if selected_address %}&address={{ selected_address.id }}{% endif %}"
+    data-spa
+    data-checkout-continue
+    data-checkout-payment-url="{% url 'payment' %}"
+  >
+    CONTINUE
+  </a>
+</div>
 {% endblock %}

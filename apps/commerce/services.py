@@ -17,16 +17,21 @@ def merge_session_cart(request, user):
     return None
 
 
-@transaction.atomic
-def place_order(user, cart, data, items_queryset=None):
-    items_queryset = items_queryset or cart.items.select_related("product", "variant")
-    items = list(items_queryset)
+def build_order_amounts(cart, items):
     subtotal = sum((item.line_total for item in items), Decimal("0.00"))
     discount = Decimal("0.00")
     if cart.coupon and cart.subtotal:
-      discount = min(subtotal, cart.discount * (subtotal / cart.subtotal))
+        discount = min(subtotal, cart.discount * (subtotal / cart.subtotal))
     shipping = Decimal("0.00") if subtotal >= Decimal("2500.00") or subtotal == 0 else Decimal("149.00")
     total = max(Decimal("0.00"), subtotal - discount + shipping)
+    return subtotal, discount, shipping, total
+
+
+@transaction.atomic
+def place_order(user, cart, data, items_queryset=None, *, payment_status=Order.PAYMENT_PENDING, selected_payment_method=""):
+    items_queryset = items_queryset or cart.items.select_related("product", "variant")
+    items = list(items_queryset)
+    subtotal, discount, shipping, total = build_order_amounts(cart, items)
     order = Order.objects.create(
         user=user,
         coupon=cart.coupon,
@@ -39,6 +44,8 @@ def place_order(user, cart, data, items_queryset=None):
         state=data["state"],
         postal_code=data["postal_code"],
         payment_method=data.get("payment_method", "cod"),
+        payment_status=payment_status,
+        selected_payment_method=selected_payment_method or data.get("selected_payment_method", ""),
         subtotal=subtotal,
         discount=discount,
         shipping=shipping,

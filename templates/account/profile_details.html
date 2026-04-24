@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Add New Profile - Anaacoss{% endblock %}
+{% block extra_head %}
+<style>
+  .site-footer { display: none; }
+</style>
+{% endblock %}
+{% block content %}
+<section class="profile-shell">
+  <article class="cosmetic-profile-card profile-details-page-card">
+    <a class="cosmetic-back-link" href="{% url 'dashboard' %}" data-spa>
+      <i class="fa-solid fa-arrow-left"></i>
+      <span>Back to Profile</span>
+    </a>
+    <div class="cosmetic-profile-head profile-details-head">
+      <p class="profile-premium-label">Shopping Profile</p>
+      <h1>Add New Profile</h1>
+      <p>Create another profile for shopping with a name and photo, similar to modern shopping apps.</p>
+    </div>
+
+    <form class="profile-account-form profile-details-page-form" method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      <div class="profile-account-hero profile-account-hero-page">
+        <div class="profile-account-hero-main">
+          <span class="profile-account-badge" aria-hidden="true"><i class="fa-solid fa-crown"></i></span>
+          <div class="profile-account-identity">
+            <label class="profile-account-avatar profile-account-avatar-upload">
+              <span>N</span>
+              <span class="profile-avatar-edit-badge"><i class="fa-solid fa-camera"></i></span>
+              {{ shopping_profile_form.avatar }}
+            </label>
+            <div class="profile-account-copy">
+              <strong>New Shopping Profile</strong>
+              <span>Tap the photo to add an avatar</span>
+            </div>
+          </div>
+        </div>
+        <div class="profile-account-hero-art" aria-hidden="true">
+          <i class="fa-solid fa-user-pen"></i>
+        </div>
+      </div>
+
+      <div class="profile-form-stack profile-form-shell">
+        <div class="profile-form-block">
+          <p class="profile-form-block-label">Profile Information</p>
+          <div class="form-grid">
+            <label class="profile-form-field">
+              <span>First Name</span>
+              {{ shopping_profile_form.first_name }}
+            </label>
+            <label class="profile-form-field">
+              <span>Last Name</span>
+              {{ shopping_profile_form.last_name }}
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <button class="btn profile-account-save full" type="submit">
+        <i class="fa-solid fa-floppy-disk"></i>
+        <span>Create Profile</span>
+      </button>
+
+      {% if profile_added %}
+        <p class="profile-inline-message">Profile added.</p>
+      {% endif %}
+    </form>
+  </article>
+</section>
+{% endblock %}

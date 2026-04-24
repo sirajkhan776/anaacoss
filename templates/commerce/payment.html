@@ -1,0 +1,279 @@
+{% extends "base.html" %}
+{% block title %}Payment - Anaacoss{% endblock %}
+{% block extra_head %}
+<style>
+  .top-ribbon,
+  .site-header,
+  .site-footer {
+    display: none !important;
+  }
+</style>
+{% endblock %}
+{% block content %}
+<section class="checkout-flow-page checkout-payment-page" data-payment-page data-selected-items="{{ checkout_item_ids }}" data-payment-total="{{ checkout_summary.total }}" data-payment-address-id="{% if selected_address %}{{ selected_address.id }}{% endif %}">
+  <header class="checkout-flow-header">
+    <a class="checkout-flow-back" href="{{ checkout_back_url }}{% if selected_address %}&address={{ selected_address.id }}{% endif %}" data-spa aria-label="Back to address">
+      <i class="fa-solid fa-arrow-left"></i>
+    </a>
+    <h1>PAYMENT</h1>
+  </header>
+
+  <div class="checkout-progress" aria-label="Checkout progress">
+    <div class="checkout-progress-step is-complete">
+      <span class="checkout-progress-icon"><i class="fa-solid fa-check"></i></span>
+      <span>Bag</span>
+    </div>
+    <span class="checkout-progress-line is-complete"></span>
+    <div class="checkout-progress-step is-complete">
+      <span class="checkout-progress-icon"><i class="fa-solid fa-check"></i></span>
+      <span>Address</span>
+    </div>
+    <span class="checkout-progress-line is-complete"></span>
+    <div class="checkout-progress-step is-active">
+      <span class="checkout-progress-icon">3</span>
+      <span>Payment</span>
+    </div>
+  </div>
+
+  <section class="checkout-flow-card checkout-offers-card">
+    <div class="checkout-flow-card-head">
+      <div>
+        <p class="checkout-flow-eyebrow">Coupons &amp; Bank Offers</p>
+        <h2>Save more on this order</h2>
+      </div>
+      <a class="checkout-change-btn" href="{% url 'offers' %}" data-spa>All offers{% if coupon_count %} ({{ coupon_count }}){% endif %}</a>
+    </div>
+  </section>
+
+  <section class="checkout-flow-card">
+    <div class="checkout-flow-card-head">
+      <div>
+        <p class="checkout-flow-eyebrow">Deliver to</p>
+        <h2>Selected address</h2>
+      </div>
+      <a class="checkout-change-btn" href="{{ checkout_back_url }}{% if selected_address %}&address={{ selected_address.id }}{% endif %}" data-spa>Change</a>
+    </div>
+    {% if selected_address %}
+      <article class="checkout-selected-address">
+        <div class="checkout-selected-address-top">
+          <strong>{{ selected_address.full_name }}</strong>
+          <div class="checkout-selected-address-tags">
+            {% if selected_address.is_default %}<span class="checkout-address-default">Default</span>{% endif %}
+            <span class="checkout-address-tag">{{ selected_address.label|upper }}</span>
+          </div>
+        </div>
+        <p>{{ selected_address.line1 }}{% if selected_address.line2 %}, {{ selected_address.line2 }}{% endif %}, {{ selected_address.city }}, {{ selected_address.state }} {{ selected_address.postal_code }}</p>
+        <span class="checkout-selected-address-phone">Mobile: {{ selected_address.phone }}</span>
+      </article>
+    {% else %}
+      <article class="checkout-selected-address checkout-selected-address-empty">
+        <strong>No saved address selected</strong>
+        <p>Select an address before placing the order.</p>
+      </article>
+    {% endif %}
+  </section>
+
+  <form class="payment-screen" id="payment-checkout-form" data-checkout-form data-payment-form>
+    <input type="hidden" name="address_id" value="{% if selected_address %}{{ selected_address.id }}{% endif %}" data-checkout-address-input>
+
+    <section class="checkout-flow-card">
+      <div class="checkout-flow-card-head">
+        <div>
+          <p class="checkout-flow-eyebrow">Recommended Payment Options</p>
+          <h2>Recommended payment options</h2>
+        </div>
+      </div>
+      <label class="payment-option-card payment-option-card-featured">
+        <span class="payment-option-radio">
+          <input type="radio" name="payment_method" value="cod" checked>
+          <span class="payment-custom-radio"></span>
+        </span>
+        <span class="payment-option-copy">
+          <strong>Cash on Delivery (Cash/UPI)</strong>
+          <small>Pay at your doorstep after the order arrives.</small>
+        </span>
+        <span class="payment-option-icon" aria-hidden="true">
+          <i class="fa-solid fa-money-bill-wave"></i>
+        </span>
+      </label>
+    </section>
+
+    <section class="checkout-flow-card">
+      <div class="checkout-flow-card-head">
+        <div>
+          <p class="checkout-flow-eyebrow">Online Payment Options</p>
+          <h2>Choose payment method</h2>
+        </div>
+      </div>
+
+      <div class="payment-accordion" data-payment-accordion>
+        <section class="payment-accordion-item is-open">
+          <button class="payment-accordion-trigger" type="button" data-payment-toggle aria-expanded="true" aria-controls="payment-upi-panel">
+            <span>
+              <strong>UPI</strong>
+              <small>Pay via any App</small>
+            </span>
+            <i class="fa-solid fa-angle-down"></i>
+          </button>
+          <div class="payment-accordion-panel" id="payment-upi-panel">
+            <label class="payment-option-card">
+              <span class="payment-option-radio">
+                <input type="radio" name="payment_method" value="phonepe">
+                <span class="payment-custom-radio"></span>
+              </span>
+              <span class="payment-app-badge payment-app-badge-phonepe">P</span>
+              <span class="payment-option-copy">
+                <strong>PhonePe</strong>
+                <small>Recommended UPI app</small>
+              </span>
+              <span class="payment-option-indicator"><i class="fa-solid fa-angle-right"></i></span>
+              <button class="btn payment-upi-pay-btn" type="button" data-upi-pay="phonepe">Pay Now</button>
+            </label>
+            <label class="payment-option-card">
+              <span class="payment-option-radio">
+                <input type="radio" name="payment_method" value="gpay">
+                <span class="payment-custom-radio"></span>
+              </span>
+              <span class="payment-app-badge payment-app-badge-gpay">G</span>
+              <span class="payment-option-copy">
+                <strong>Google Pay</strong>
+                <small>Pay securely with UPI</small>
+              </span>
+              <span class="payment-option-indicator"><i class="fa-solid fa-angle-right"></i></span>
+              <button class="btn payment-upi-pay-btn" type="button" data-upi-pay="gpay">Pay Now</button>
+            </label>
+            <label class="payment-option-card">
+              <span class="payment-option-radio">
+                <input type="radio" name="payment_method" value="amazon_pay_upi">
+                <span class="payment-custom-radio"></span>
+              </span>
+              <span class="payment-app-badge payment-app-badge-amazon">A</span>
+              <span class="payment-option-copy">
+                <strong>Amazon Pay UPI</strong>
+                <small>Fast checkout with linked account</small>
+              </span>
+              <span class="payment-option-indicator"><i class="fa-solid fa-angle-right"></i></span>
+              <button class="btn payment-upi-pay-btn" type="button" data-upi-pay="amazon_pay_upi">Pay Now</button>
+            </label>
+            <label class="payment-option-card">
+              <span class="payment-option-radio">
+                <input type="radio" name="payment_method" value="imobile">
+                <span class="payment-custom-radio"></span>
+              </span>
+              <span class="payment-app-badge payment-app-badge-imobile">iM</span>
+              <span class="payment-option-copy">
+                <strong>iMobile (ICICI)</strong>
+                <small>Pay through your banking app</small>
+              </span>
+              <span class="payment-option-indicator"><i class="fa-solid fa-angle-right"></i></span>
+              <button class="btn payment-upi-pay-btn" type="button" data-upi-pay="imobile">Pay Now</button>
+            </label>
+          </div>
+        </section>
+
+        <section class="payment-accordion-item">
+          <button class="payment-accordion-trigger" type="button" data-payment-toggle aria-expanded="false" aria-controls="payment-card-panel">
+            <span>
+              <strong>Credit / Debit Card</strong>
+              <small>Add or use a saved card</small>
+            </span>
+            <i class="fa-solid fa-angle-down"></i>
+          </button>
+          <div class="payment-accordion-panel" id="payment-card-panel" hidden>
+            <label class="payment-option-card">
+              <span class="payment-option-radio">
+                <input type="radio" name="payment_method" value="card">
+                <span class="payment-custom-radio"></span>
+              </span>
+              <span class="payment-option-copy">
+                <strong>Pay with Card</strong>
+                <small>Card form will be connected in the next step.</small>
+              </span>
+              <span class="payment-option-icon" aria-hidden="true"><i class="fa-regular fa-credit-card"></i></span>
+            </label>
+            <div class="payment-placeholder-card">
+              <i class="fa-regular fa-credit-card"></i>
+              <span>Card form placeholder for future gateway integration</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="payment-accordion-item">
+          <button class="payment-accordion-trigger" type="button" data-payment-toggle aria-expanded="false" aria-controls="payment-other-panel">
+            <span>
+              <strong>Other payment methods</strong>
+              <small>Net Banking and Wallets</small>
+            </span>
+            <i class="fa-solid fa-angle-down"></i>
+          </button>
+          <div class="payment-accordion-panel" id="payment-other-panel" hidden>
+            <label class="payment-option-card">
+              <span class="payment-option-radio">
+                <input type="radio" name="payment_method" value="net_banking">
+                <span class="payment-custom-radio"></span>
+              </span>
+              <span class="payment-option-copy">
+                <strong>Net Banking</strong>
+                <small>Choose from supported banks later</small>
+              </span>
+              <span class="payment-option-icon" aria-hidden="true"><i class="fa-solid fa-building-columns"></i></span>
+            </label>
+            <label class="payment-option-card">
+              <span class="payment-option-radio">
+                <input type="radio" name="payment_method" value="wallet">
+                <span class="payment-custom-radio"></span>
+              </span>
+              <span class="payment-option-copy">
+                <strong>Wallet</strong>
+                <small>Use wallet balance or linked cashback wallet</small>
+              </span>
+              <span class="payment-option-icon" aria-hidden="true"><i class="fa-solid fa-wallet"></i></span>
+            </label>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section class="checkout-flow-card">
+      <div class="checkout-flow-card-head">
+        <div>
+          <p class="checkout-flow-eyebrow">Price details</p>
+          <h2>Order summary</h2>
+        </div>
+      </div>
+      <div class="checkout-price-summary">
+        <div><span>Total MRP</span><strong>Rs. {{ checkout_summary.subtotal }}</strong></div>
+        <div><span>Discount</span><strong>Rs. {{ checkout_summary.discount }}</strong></div>
+        <div><span>Delivery Charges</span><strong>Rs. {{ checkout_summary.shipping }}</strong></div>
+        <div class="is-total"><span>Final Amount</span><strong>Rs. {{ checkout_summary.total }}</strong></div>
+      </div>
+      <p class="form-note checkout-address-note" data-checkout-address-note>
+        {% if selected_address %}
+          Delivering to {{ selected_address.full_name }} at {{ selected_address.label }}.
+        {% else %}
+          Select or add an address before placing your order.
+        {% endif %}
+      </p>
+    </section>
+  </form>
+</section>
+
+<div class="checkout-sticky-bar checkout-payment-sticky" data-payment-sticky>
+  <button class="sticky-order-strip payment-sticky-summary" type="button" data-payment-summary-toggle aria-expanded="false" aria-controls="payment-summary-panel">
+    <span class="payment-sticky-copy">
+      <strong>Price Details ({{ checkout_summary.count }} item{{ checkout_summary.count|pluralize }})</strong>
+      <span>Total Amount: Rs. {{ checkout_summary.total }}</span>
+    </span>
+    <i class="fa-solid fa-angle-up"></i>
+  </button>
+  <div class="payment-sticky-panel" id="payment-summary-panel" hidden>
+    <div class="checkout-price-summary">
+      <div><span>Total MRP</span><strong>Rs. {{ checkout_summary.subtotal }}</strong></div>
+      <div><span>Discount</span><strong>Rs. {{ checkout_summary.discount }}</strong></div>
+      <div><span>Delivery Charges</span><strong>Rs. {{ checkout_summary.shipping }}</strong></div>
+      <div class="is-total"><span>Final Amount</span><strong>Rs. {{ checkout_summary.total }}</strong></div>
+    </div>
+  </div>
+  <button class="btn checkout-sticky-btn" type="submit" form="payment-checkout-form" data-payment-place-order>Place Order</button>
+</div>
+{% endblock %}

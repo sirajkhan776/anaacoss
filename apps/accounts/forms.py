@@ -1,6 +1,6 @@
 from django import forms
 
-from .models import Profile, User
+from .models import Profile, ShoppingProfile, User
 
 
 class CosmeticProfileForm(forms.ModelForm):
@@ -86,4 +86,14 @@ class AccountDetailsForm(forms.ModelForm):
             "last_name": forms.TextInput(attrs={"class": "lux-input", "placeholder": "Last name"}),
             "phone": forms.TextInput(attrs={"class": "lux-input", "placeholder": "Phone number"}),
             "email": forms.EmailInput(attrs={"class": "lux-input", "placeholder": "Email"}),
+        }
+
+
+class ShoppingProfileForm(forms.ModelForm):
+    class Meta:
+        model = ShoppingProfile
+        fields = ("first_name", "last_name", "avatar")
+        widgets = {
+            "first_name": forms.TextInput(attrs={"class": "lux-input", "placeholder": "First name"}),
+            "last_name": forms.TextInput(attrs={"class": "lux-input", "placeholder": "Last name"}),
         }

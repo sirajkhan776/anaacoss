@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Payment Pending - Anaacoss{% endblock %}
+{% block extra_head %}
+<style>
+  .top-ribbon,
+  .site-header,
+  .site-footer {
+    display: none !important;
+  }
+</style>
+{% endblock %}
+{% block content %}
+<section class="checkout-flow-page">
+  <header class="checkout-flow-header">
+    <a class="checkout-flow-back" href="{% url 'dashboard' %}" data-spa aria-label="Back to dashboard">
+      <i class="fa-solid fa-arrow-left"></i>
+    </a>
+    <h1>PAYMENT PENDING</h1>
+  </header>
+
+  <section class="checkout-flow-card">
+    <div class="checkout-flow-card-head">
+      <div>
+        <p class="checkout-flow-eyebrow">Order status</p>
+        <h2>We are waiting for payment confirmation</h2>
+      </div>
+    </div>
+    <div class="checkout-selected-address">
+      <div class="checkout-selected-address-top">
+        <strong>Order #{{ order.id }}</strong>
+        <div class="checkout-selected-address-tags">
+          <span class="checkout-address-default">{{ order.payment_status|title }}</span>
+          <span class="checkout-address-tag">{{ order.selected_payment_method|default:order.payment_method }}</span>
+        </div>
+      </div>
+      <p>{{ order.full_name }}, {{ order.address_line1 }}{% if order.address_line2 %}, {{ order.address_line2 }}{% endif %}, {{ order.city }}, {{ order.state }} {{ order.postal_code }}</p>
+      <span class="checkout-selected-address-phone">Amount: Rs. {{ order.total }}</span>
+    </div>
+    <p class="form-note">UPI intent payments do not confirm automatically here. Once you complete payment in your UPI app, you can verify the order later from your dashboard until a gateway callback is integrated.</p>
+    <a class="btn checkout-sticky-btn" href="{% url 'dashboard' %}" data-spa>Go to Orders</a>
+  </section>
+</section>
+{% endblock %}

@@ -26,6 +26,21 @@ class Profile(models.Model):
         return self.user.get_full_name() or self.user.username
 
 
+class ShoppingProfile(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="shopping_profiles")
+    first_name = models.CharField(max_length=80)
+    last_name = models.CharField(max_length=80, blank=True)
+    avatar = models.ImageField(upload_to="shopping_profiles/", blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at"]
+
+    def __str__(self):
+        full_name = f"{self.first_name} {self.last_name}".strip()
+        return full_name or self.user.username
+
+
 class Address(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="addresses")
     label = models.CharField(max_length=50, default="Home")

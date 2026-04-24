@@ -1,10 +1,17 @@
+from datetime import timedelta
+from decimal import Decimal
+from urllib.parse import urlencode
+
+from django.conf import settings
+from django.db.utils import OperationalError, ProgrammingError
 from django.shortcuts import redirect, render
+from django.utils import timezone
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 
 from apps.accounts.decorators import jwt_required_page
-from apps.accounts.forms import AccountDetailsForm, CosmeticProfileForm, NotificationSettingsForm
+from apps.accounts.forms import AccountDetailsForm, CosmeticProfileForm, NotificationSettingsForm, ShoppingProfileForm
 from apps.accounts.models import Profile
 from apps.catalog.models import Product, ProductVariant
 from apps.catalog.views import base_context
@@ -12,6 +19,61 @@ from apps.catalog.views import base_context
 from .models import Coupon, Order, WishlistItem
 from .serializers import CartSerializer, CouponSerializer, OrderSerializer, WishlistItemSerializer
 from .services import get_cart, place_order
+
+
+def get_user_shopping_profiles(user):
+    try:
+        return list(user.shopping_profiles.all())
+    except (OperationalError, ProgrammingError):
+        return []
+
+
+def parse_selected_item_ids(value):
+    if not value:
+        return []
+    return [item.strip() for item in str(value).split(",") if item.strip().isdigit()]
+
+
+def get_checkout_items(request, cart):
+    selected_ids = parse_selected_item_ids(request.GET.get("items"))
+    items = cart.items.select_related("product", "variant").prefetch_related("product__images")
+    if selected_ids:
+        items = items.filter(id__in=selected_ids)
+        order_map = {item_id: index for index, item_id in enumerate(selected_ids)}
+        return sorted(items, key=lambda item: order_map.get(str(item.id), 9999)), selected_ids
+    return list(items), [str(item.id) for item in items]
+
+
+def build_checkout_summary(cart, items):
+    subtotal = sum((item.line_total for item in items), Decimal("0.00"))
+    discount = cart.coupon.discount_for(subtotal) if cart.coupon else Decimal("0.00")
+    shipping = Decimal("0.00") if subtotal >= Decimal("2500.00") or subtotal == 0 else Decimal("149.00")
+    total = max(Decimal("0.00"), subtotal - discount + shipping)
+    return {
+        "subtotal": subtotal,
+        "discount": discount,
+        "shipping": shipping,
+        "total": total,
+        "count": sum(item.quantity for item in items),
+    }
+
+
+UPI_METHOD_LABELS = {
+    "phonepe": "PhonePe UPI",
+    "gpay": "Google Pay UPI",
+    "amazon_pay_upi": "Amazon Pay UPI",
+    "imobile": "iMobile (ICICI) UPI",
+}
+
+
+PAYMENT_METHOD_LABELS = {
+    "cod": "Cash on Delivery",
+    "upi": "UPI",
+    "card": "Credit / Debit Card",
+    "net_banking": "Net Banking",
+    "wallet": "Wallet",
+    **UPI_METHOD_LABELS,
+}
 
 
 @jwt_required_page
@@ -25,10 +87,54 @@ def cart_page(request):
 @jwt_required_page
 def checkout_page(request):
     ctx = base_context()
-    ctx["cart"] = get_cart(request)
-    ctx["addresses"] = request.user.addresses.all()
-    ctx["selected_address"] = request.user.addresses.filter(is_default=True).first() or request.user.addresses.first()
+    cart = get_cart(request)
+    selected_items, selected_item_ids = get_checkout_items(request, cart)
+    addresses = request.user.addresses.all()
+    selected_address_id = request.GET.get("address")
+    selected_address = request.user.addresses.filter(pk=selected_address_id).first() if selected_address_id else None
+    selected_address = selected_address or request.user.addresses.filter(is_default=True).first() or request.user.addresses.first()
+    ctx["cart"] = cart
+    ctx["addresses"] = addresses
+    ctx["selected_address"] = selected_address
+    ctx["checkout_items"] = selected_items
+    ctx["checkout_item_ids"] = ",".join(selected_item_ids)
+    ctx["checkout_summary"] = build_checkout_summary(cart, selected_items)
+    ctx["delivery_estimate"] = timezone.now().date() + timedelta(days=4)
+    ctx["checkout_return_url"] = f"/checkout/?items={','.join(selected_item_ids)}"
     return render(request, "commerce/checkout.html", ctx)
+
+
+@jwt_required_page
+def payment_view(request):
+    ctx = base_context()
+    cart = get_cart(request)
+    selected_items, selected_item_ids = get_checkout_items(request, cart)
+    selected_address_id = request.GET.get("address")
+    selected_address = request.user.addresses.filter(pk=selected_address_id).first() if selected_address_id else None
+    selected_address = selected_address or request.user.addresses.filter(is_default=True).first() or request.user.addresses.first()
+    ctx["cart"] = cart
+    ctx["selected_address"] = selected_address
+    ctx["checkout_items"] = selected_items
+    ctx["checkout_item_ids"] = ",".join(selected_item_ids)
+    ctx["checkout_summary"] = build_checkout_summary(cart, selected_items)
+    ctx["checkout_back_url"] = f"/checkout/?items={','.join(selected_item_ids)}"
+    ctx["coupon_count"] = Coupon.objects.filter(is_active=True).count()
+    ctx["admin_upi_id"] = settings.ADMIN_UPI_ID
+    ctx["admin_upi_name"] = settings.ADMIN_NAME
+    return render(request, "commerce/payment.html", ctx)
+
+
+@jwt_required_page
+def payment_pending_page(request, order_id):
+    ctx = base_context()
+    order = request.user.orders.prefetch_related("items").filter(pk=order_id).first()
+    if not order:
+        return redirect("/dashboard/")
+    ctx["order"] = order
+    return render(request, "commerce/payment_pending.html", ctx)
+
+
+payment_page = payment_view
 
 
 @jwt_required_page
@@ -65,6 +171,7 @@ def dashboard_page(request):
             return redirect("/dashboard/?settings_saved=1")
     ctx["profile_user"] = request.user
     ctx["profile"] = profile
+    ctx["shopping_profiles"] = get_user_shopping_profiles(request.user)
     ctx["orders"] = request.user.orders.prefetch_related("items")[:8]
     ctx["addresses"] = request.user.addresses.all()
     ctx["account_form"] = AccountDetailsForm(instance=request.user)
@@ -72,6 +179,28 @@ def dashboard_page(request):
     ctx["account_open"] = request.GET.get("account_open") == "1"
     ctx["settings_saved"] = request.GET.get("settings_saved") == "1"
     return render(request, "account/dashboard.html", ctx)
+
+
+@jwt_required_page
+def profile_details_page(request):
+    ctx = base_context()
+    if request.method == "POST":
+        profile_form = ShoppingProfileForm(request.POST, request.FILES)
+        if profile_form.is_valid():
+            try:
+                shopping_profile = profile_form.save(commit=False)
+                shopping_profile.user = request.user
+                shopping_profile.save()
+            except (OperationalError, ProgrammingError):
+                return redirect("/dashboard/")
+            return redirect("/dashboard/?profile_added=1")
+    ctx.update(
+        {
+            "shopping_profile_form": ShoppingProfileForm(),
+            "profile_added": request.GET.get("saved") == "1",
+        }
+    )
+    return render(request, "account/profile_details.html", ctx)
 
 
 @jwt_required_page
@@ -221,8 +350,89 @@ class OrderViewSet(viewsets.ModelViewSet):
             if missing:
                 return Response({field: ["This field is required."] for field in missing}, status=status.HTTP_400_BAD_REQUEST)
             payload = request.data
-        order = place_order(request.user, cart, payload, items_queryset=items_queryset)
+        payment_method = payload.get("payment_method", "cod")
+        selected_label = payload.get("selected_payment_method") or PAYMENT_METHOD_LABELS.get(payment_method, payment_method.replace("_", " ").title())
+        order = place_order(
+            request.user,
+            cart,
+            payload,
+            items_queryset=items_queryset,
+            payment_status=Order.PAYMENT_PENDING,
+            selected_payment_method=selected_label,
+        )
         return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=["post"], permission_classes=[permissions.IsAuthenticated], url_path="start-upi")
+    def start_upi(self, request):
+        if not settings.ADMIN_UPI_ID:
+            return Response({"upi": ["Admin UPI ID is not configured."]}, status=status.HTTP_400_BAD_REQUEST)
+        cart = get_cart(request)
+        if not cart.items.exists():
+            return Response({"cart": ["Your cart is empty."]}, status=status.HTTP_400_BAD_REQUEST)
+        selected_item_ids = request.data.get("selected_item_ids") or []
+        if isinstance(selected_item_ids, str):
+            selected_item_ids = [item.strip() for item in selected_item_ids.split(",") if item.strip()]
+        items_queryset = cart.items.select_related("product", "variant")
+        if selected_item_ids:
+            items_queryset = items_queryset.filter(id__in=selected_item_ids)
+        if not items_queryset.exists():
+            return Response({"selected_item_ids": ["Select at least one cart item."]}, status=status.HTTP_400_BAD_REQUEST)
+
+        address_id = request.data.get("address_id")
+        address = request.user.addresses.filter(pk=address_id).first() if address_id else None
+        if not address:
+            return Response({"address_id": ["Select a valid saved address."]}, status=status.HTTP_400_BAD_REQUEST)
+
+        app_name = request.data.get("app_name", "").strip()
+        payment_method = app_name if app_name in UPI_METHOD_LABELS else "upi"
+        selected_label = UPI_METHOD_LABELS.get(app_name, "UPI")
+        payload = {
+            "full_name": address.full_name,
+            "email": request.user.email,
+            "phone": address.phone,
+            "address_line1": address.line1,
+            "address_line2": address.line2,
+            "city": address.city,
+            "state": address.state,
+            "postal_code": address.postal_code,
+            "payment_method": payment_method,
+            "selected_payment_method": selected_label,
+        }
+        order = place_order(
+            request.user,
+            cart,
+            payload,
+            items_queryset=items_queryset,
+            payment_status=Order.PAYMENT_PENDING,
+            selected_payment_method=selected_label,
+        )
+
+        amount = format(order.total, ".2f")
+        params = urlencode(
+            {
+                "pa": settings.ADMIN_UPI_ID,
+                "pn": settings.ADMIN_NAME,
+                "am": amount,
+                "cu": "INR",
+                "tn": f"Order Payment #{order.id}",
+            }
+        )
+        generic_url = f"upi://pay?{params}"
+        intent_url = generic_url
+        if app_name == "phonepe":
+            intent_url = f"phonepe://pay?{params}"
+
+        return Response(
+            {
+                "order_id": order.id,
+                "intent_url": intent_url,
+                "fallback_url": generic_url,
+                "pending_url": f"/checkout/payment/pending/{order.id}/",
+                "payment_status": order.payment_status,
+                "selected_payment_method": order.selected_payment_method,
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class CouponViewSet(viewsets.ReadOnlyModelViewSet):

@@ -111,6 +111,15 @@ class WishlistItem(models.Model):
 
 
 class Order(models.Model):
+    PAYMENT_PENDING = "pending"
+    PAYMENT_PAID = "paid"
+    PAYMENT_FAILED = "failed"
+    PAYMENT_STATUSES = [
+        (PAYMENT_PENDING, "Pending"),
+        (PAYMENT_PAID, "Paid"),
+        (PAYMENT_FAILED, "Failed"),
+    ]
+
     PENDING = "pending"
     PAID = "paid"
     PROCESSING = "processing"
@@ -138,6 +147,8 @@ class Order(models.Model):
     state = models.CharField(max_length=80)
     postal_code = models.CharField(max_length=20)
     payment_method = models.CharField(max_length=60, default="cod")
+    payment_status = models.CharField(max_length=20, choices=PAYMENT_STATUSES, default=PAYMENT_PENDING)
+    selected_payment_method = models.CharField(max_length=120, blank=True)
     subtotal = models.DecimalField(max_digits=10, decimal_places=2)
     discount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     shipping = models.DecimalField(max_digits=10, decimal_places=2, default=0)
