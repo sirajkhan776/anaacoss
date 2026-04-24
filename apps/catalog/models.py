@@ -64,6 +64,15 @@ class ProductQuerySet(models.QuerySet):
 
 
 class Product(TimeStampedModel):
+    GENDER_MALE = "male"
+    GENDER_FEMALE = "female"
+    GENDER_UNISEX = "unisex"
+    GENDER_CHOICES = [
+        (GENDER_MALE, "Male"),
+        (GENDER_FEMALE, "Female"),
+        (GENDER_UNISEX, "Unisex"),
+    ]
+
     SKIN_TYPES = [
         ("all", "All skin types"),
         ("dry", "Dry"),
@@ -86,6 +95,7 @@ class Product(TimeStampedModel):
     sku = models.CharField(max_length=80, unique=True)
     stock = models.PositiveIntegerField(default=0)
     skin_type = models.CharField(max_length=40, choices=SKIN_TYPES, default="all")
+    gender = models.CharField(max_length=20, choices=GENDER_CHOICES, default=GENDER_UNISEX)
     product_type = models.CharField(max_length=80, blank=True)
     is_active = models.BooleanField(default=True)
     is_featured = models.BooleanField(default=False)
@@ -104,6 +114,7 @@ class Product(TimeStampedModel):
             models.Index(fields=["slug"]),
             models.Index(fields=["is_active", "is_featured"]),
             models.Index(fields=["is_trending", "is_best_seller"]),
+            models.Index(fields=["gender", "category"]),
         ]
 
     def save(self, *args, **kwargs):

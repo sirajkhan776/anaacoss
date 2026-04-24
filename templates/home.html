@@ -71,11 +71,19 @@
   </div>
 </section>
 
-<section class="promise-strip reveal">
-  <div><i class="fa-solid fa-leaf"></i><span>Cruelty-free</span></div>
-  <div><i class="fa-solid fa-shield-heart"></i><span>Dermatology tested</span></div>
-  <div><i class="fa-solid fa-truck-fast"></i><span>Luxury delivery</span></div>
-  <div><i class="fa-solid fa-lock"></i><span>Secure checkout</span></div>
+<section class="promise-marquee reveal" aria-label="Shopping promises">
+  <div class="promise-marquee-shell">
+    <div class="promise-marquee-track">
+      <span class="promise-marquee-item"><i class="fa-solid fa-leaf"></i> Cruelty-free</span>
+      <span class="promise-marquee-item"><i class="fa-solid fa-shield-heart"></i> Dermatologist tested</span>
+      <span class="promise-marquee-item"><i class="fa-solid fa-truck-fast"></i> Luxury delivery</span>
+      <span class="promise-marquee-item"><i class="fa-solid fa-lock"></i> Secure checkout</span>
+      <span class="promise-marquee-item" aria-hidden="true"><i class="fa-solid fa-leaf"></i> Cruelty-free</span>
+      <span class="promise-marquee-item" aria-hidden="true"><i class="fa-solid fa-shield-heart"></i> Dermatologist tested</span>
+      <span class="promise-marquee-item" aria-hidden="true"><i class="fa-solid fa-truck-fast"></i> Luxury delivery</span>
+      <span class="promise-marquee-item" aria-hidden="true"><i class="fa-solid fa-lock"></i> Secure checkout</span>
+    </div>
+  </div>
 </section>
 
 <section class="section blush-band reveal">
@@ -111,6 +119,114 @@
     {% endfor %}
   </div>
 </section>
+
+<section class="home-feed-section reveal" data-home-feed-root>
+  <div class="home-feed-sticky-shell">
+    <div class="home-feed-intro">
+      <div class="home-feed-intro-copy">
+        <p class="eyebrow">Discover more</p>
+        <h2>Endless beauty finds</h2>
+      </div>
+      <div class="home-feed-count-badge" data-home-feed-count>{{ home_feed_count }} items</div>
+    </div>
+    <div class="home-filter-bar" data-home-filter-bar>
+      <button class="home-filter-trigger" type="button" data-home-filter-open="sort">
+        <i class="fa-solid fa-arrow-down-wide-short"></i>
+        <span>Sort</span>
+      </button>
+      <button class="home-filter-trigger" type="button" data-home-filter-open="category">
+        <i class="fa-solid fa-layer-group"></i>
+        <span>Category</span>
+      </button>
+      <button class="home-filter-trigger" type="button" data-home-filter-open="gender">
+        <i class="fa-solid fa-venus-mars"></i>
+        <span>Gender</span>
+      </button>
+      <button class="home-filter-trigger" type="button" data-home-filter-open="filter">
+        <i class="fa-solid fa-sliders"></i>
+        <span>Filter</span>
+      </button>
+    </div>
+    <div class="home-filter-pills" data-home-filter-pills></div>
+  </div>
+
+  <div class="home-feed-grid product-grid" data-home-product-grid>
+    {% for product in home_products %}
+      {% include "partials_product_card.html" %}
+    {% endfor %}
+  </div>
+
+  <div class="home-feed-loader" data-home-feed-loader hidden>
+    <span class="home-feed-loader-dot"></span>
+    <span>Loading more products</span>
+  </div>
+  <p class="home-feed-end" data-home-feed-end hidden>You have reached the end of the catalogue.</p>
+</section>
+
+<div class="modal-shell" data-home-filter-modal aria-hidden="true">
+  <div class="modal-card home-filter-modal-card" role="dialog" aria-modal="true" tabindex="-1">
+    <button class="icon-btn modal-close" type="button" data-home-filter-close><i class="fa-solid fa-xmark"></i></button>
+    <div class="home-filter-modal-head">
+      <p class="eyebrow" data-home-filter-kicker>Filter</p>
+      <h3 data-home-filter-title>Refine products</h3>
+    </div>
+
+    <div class="home-filter-panel" data-home-filter-panel="sort" hidden>
+      <button class="home-filter-option active" type="button" data-home-filter-value="sort" data-value="">Recommended</button>
+      <button class="home-filter-option" type="button" data-home-filter-value="sort" data-value="price_low">Price Low to High</button>
+      <button class="home-filter-option" type="button" data-home-filter-value="sort" data-value="price_high">Price High to Low</button>
+      <button class="home-filter-option" type="button" data-home-filter-value="sort" data-value="newest">Newest</button>
+      <button class="home-filter-option" type="button" data-home-filter-value="sort" data-value="popular">Popular</button>
+    </div>
+
+    <div class="home-filter-panel" data-home-filter-panel="category" hidden>
+      <button class="home-filter-option active" type="button" data-home-filter-value="category" data-value="">All Categories</button>
+      {% for category in home_categories %}
+        <button class="home-filter-option" type="button" data-home-filter-value="category" data-value="{{ category.slug }}">{{ category.name }}</button>
+      {% endfor %}
+    </div>
+
+    <div class="home-filter-panel" data-home-filter-panel="gender" hidden>
+      <button class="home-filter-option active" type="button" data-home-filter-value="gender" data-value="">All</button>
+      <button class="home-filter-option" type="button" data-home-filter-value="gender" data-value="male">Male</button>
+      <button class="home-filter-option" type="button" data-home-filter-value="gender" data-value="female">Female</button>
+      <button class="home-filter-option" type="button" data-home-filter-value="gender" data-value="unisex">Unisex</button>
+    </div>
+
+    <form class="home-filter-panel home-advanced-filter-form" data-home-filter-panel="filter" hidden>
+      <div class="form-grid">
+        <label>
+          <span>Min Price</span>
+          <input class="lux-input" type="number" min="0" step="1" name="min_price" placeholder="0">
+        </label>
+        <label>
+          <span>Max Price</span>
+          <input class="lux-input" type="number" min="0" step="1" name="max_price" placeholder="10000">
+        </label>
+      </div>
+      <label>
+        <span>Brand</span>
+        <select class="lux-input" name="brand">
+          <option value="">All Brands</option>
+          {% for brand in home_brands %}
+            <option value="{{ brand.slug }}">{{ brand.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        <span>Availability</span>
+        <select class="lux-input" name="availability">
+          <option value="">All</option>
+          <option value="in_stock">In Stock</option>
+        </select>
+      </label>
+      <div class="home-filter-actions">
+        <button class="btn btn-ghost" type="button" data-home-filter-reset>Reset</button>
+        <button class="btn btn-dark" type="submit">Apply Filters</button>
+      </div>
+    </form>
+  </div>
+</div>
 
 <section class="offer-banner reveal">
   <div>

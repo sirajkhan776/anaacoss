@@ -9,7 +9,7 @@ from apps.content.models import Banner, Testimonial
 
 
 class Command(BaseCommand):
-    help = "Seed the Anaacoss storefront with premium sample catalogue data."
+    help = "Seed the Anaacoss storefront with a large shopping-app style catalogue."
 
     def handle(self, *args, **options):
         categories = [
@@ -28,92 +28,262 @@ class Command(BaseCommand):
             )
             category_map[slug] = category
 
-        brand, _ = Brand.objects.update_or_create(
-            slug="anaacoss-atelier",
-            defaults={"name": "Anaacoss Atelier", "story": "Luxury formulas for luminous everyday rituals.", "is_premium": True},
-        )
+        brands = {
+            "anaacoss-atelier": {
+                "name": "Anaacoss Atelier",
+                "story": "Luxury formulas for luminous everyday rituals.",
+            },
+            "veloura-labs": {
+                "name": "Veloura Labs",
+                "story": "High-performance beauty built for modern routines.",
+            },
+            "amber-veil": {
+                "name": "Amber Veil",
+                "story": "Warm fragrance and sensorial self-care edits.",
+            },
+            "lune-form": {
+                "name": "Lune Form",
+                "story": "Sculpted makeup, body, and hair essentials.",
+            },
+            "dewsmith": {
+                "name": "Dewsmith",
+                "story": "Clean hydration-forward skincare and prep staples.",
+            },
+        }
+        brand_map = {
+            slug: Brand.objects.update_or_create(
+                slug=slug,
+                defaults={"name": data["name"], "story": data["story"], "is_premium": True},
+            )[0]
+            for slug, data in brands.items()
+        }
 
         Product.objects.all().delete()
-        products = [
-            ("Velvet Bloom Lip Serum", "makeup", "Hydrating rose tint with lacquered shine.", "https://images.unsplash.com/photo-1586495777744-4413f21062fa?auto=format&fit=crop&w=900&q=80", 1490, 1190, "Glow Deal", True, True, False),
-            ("Lumiere Peptide Cream", "skincare", "Cloud-soft peptide cream for resilient radiance.", "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&w=900&q=80", 3290, 2790, "Best Seller", True, True, False),
-            ("Rose Quartz Blush Veil", "makeup", "Air-light blush with a soft-focus satin finish.", "https://images.unsplash.com/photo-1522338242992-e1a54906a8da?auto=format&fit=crop&w=900&q=80", 1890, None, "New", True, False, True),
-            ("Silk Repair Hair Elixir", "haircare", "Gloss oil with featherlight shine and heat care.", "https://images.unsplash.com/photo-1527799820374-dcf8d9d4a388?auto=format&fit=crop&w=900&q=80", 2490, 2190, "Offer", False, False, True),
-            ("Noir Petal Eau de Parfum", "fragrance", "Black rose, vanilla silk, and warm amber.", "https://images.unsplash.com/photo-1541643600914-78b084683601?auto=format&fit=crop&w=900&q=80", 4990, None, "Signature", True, True, False),
-            ("Sculpt Ritual Gua Sha", "beauty-tools", "Cooling rose stone facial sculpting tool.", "https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?auto=format&fit=crop&w=900&q=80", 1290, 990, "Limited", False, False, True),
-            ("Pearl Dew Essence", "skincare", "Milky essence with niacinamide and pearl luminosity.", "https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=900&q=80", 2190, None, "Trending", True, False, True),
-            ("Satin Skin Foundation", "makeup", "Breathable complexion tint with soft satin coverage.", "https://images.unsplash.com/photo-1599733589046-10c005739ef1?auto=format&fit=crop&w=900&q=80", 2590, 2290, "Shade Edit", True, True, False),
-        ]
-        for idx, (name, category_slug, short, image, price, discount, badge, trending, best, new) in enumerate(products, start=1):
-            product = Product.objects.create(
-                name=name,
-                brand=brand,
-                category=category_map[category_slug],
-                short_description=short,
-                description=f"{name} is crafted for a refined beauty ritual with elegant payoff and comfortable wear.",
-                ingredients="Aqua, glycerin, botanical extracts, skin-conditioning emollients, fragrance where applicable.",
-                how_to_use="Apply as part of your morning or evening ritual. Layer gently and build as desired.",
-                price=Decimal(str(price)),
-                discount_price=Decimal(str(discount)) if discount else None,
-                sku=f"ANNA-{idx:03d}",
-                stock=40 + idx,
-                skin_type="all",
-                product_type=category_slug,
-                is_active=True,
-                is_featured=idx <= 6,
-                is_trending=trending,
-                is_best_seller=best,
-                is_new_arrival=new,
-                is_offer=discount is not None,
-                badge=badge,
-                rating=Decimal("4.8"),
-                review_count=18 + idx,
-            )
-            ProductImage.objects.create(
-                product=product,
-                media_type=ProductImage.IMAGE,
-                placement=ProductImage.GALLERY,
-                remote_url=image,
-                alt_text=name,
-                is_primary=True,
-            )
-            ProductImage.objects.create(
-                product=product,
-                media_type=ProductImage.IMAGE,
-                placement=ProductImage.GALLERY,
-                remote_url=image.replace("w=900", "w=901"),
-                alt_text=f"{name} alternate",
-                sort_order=2,
-            )
-            ProductImage.objects.create(
-                product=product,
-                media_type=ProductImage.VIDEO,
-                placement=ProductImage.GALLERY,
-                video_url="https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
-                thumbnail_url=image,
-                alt_text=f"{name} texture video",
-                sort_order=3,
-            )
-            ProductImage.objects.create(
-                product=product,
-                media_type=ProductImage.IMAGE,
-                placement=ProductImage.BEFORE,
-                remote_url="https://images.unsplash.com/photo-1515377905703-c4788e51af15?auto=format&fit=crop&w=900&q=80",
-                alt_text=f"{name} before result",
-                sort_order=10,
-            )
-            ProductImage.objects.create(
-                product=product,
-                media_type=ProductImage.VIDEO,
-                placement=ProductImage.AFTER,
-                video_url="https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
-                thumbnail_url=image,
-                alt_text=f"{name} after result video",
-                sort_order=11,
-            )
-            if category_slug in {"makeup", "skincare", "fragrance"}:
-                ProductVariant.objects.create(product=product, name="Size", value="Full size", sku=f"ANNA-{idx:03d}-FULL", stock=30)
-                ProductVariant.objects.create(product=product, name="Size", value="Travel", sku=f"ANNA-{idx:03d}-TRAVEL", stock=15, price_delta=Decimal("-300"))
+
+        image_bank = {
+            "makeup": [
+                "https://images.unsplash.com/photo-1586495777744-4413f21062fa?auto=format&fit=crop&w=900&q=80",
+                "https://images.unsplash.com/photo-1522338242992-e1a54906a8da?auto=format&fit=crop&w=900&q=80",
+                "https://images.unsplash.com/photo-1599733589046-10c005739ef1?auto=format&fit=crop&w=900&q=80",
+            ],
+            "skincare": [
+                "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&w=900&q=80",
+                "https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=900&q=80",
+                "https://images.unsplash.com/photo-1570194065650-d99fb4bedf0f?auto=format&fit=crop&w=900&q=80",
+            ],
+            "haircare": [
+                "https://images.unsplash.com/photo-1527799820374-dcf8d9d4a388?auto=format&fit=crop&w=900&q=80",
+                "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80",
+                "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=900&q=80",
+            ],
+            "fragrance": [
+                "https://images.unsplash.com/photo-1541643600914-78b084683601?auto=format&fit=crop&w=900&q=80",
+                "https://images.unsplash.com/photo-1594035910387-fea47794261f?auto=format&fit=crop&w=900&q=80",
+                "https://images.unsplash.com/photo-1615634260167-c8cdede054de?auto=format&fit=crop&w=900&q=80",
+            ],
+            "beauty-tools": [
+                "https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?auto=format&fit=crop&w=900&q=80",
+                "https://images.unsplash.com/photo-1512496015851-a90fb38ba796?auto=format&fit=crop&w=900&q=80",
+                "https://images.unsplash.com/photo-1616394584738-fc6e612e71b9?auto=format&fit=crop&w=900&q=80",
+            ],
+        }
+
+        category_specs = {
+            "makeup": {
+                "brand_slugs": ["anaacoss-atelier", "veloura-labs", "lune-form"],
+                "genders": [Product.GENDER_FEMALE, Product.GENDER_UNISEX, Product.GENDER_FEMALE],
+                "name_templates": [
+                    "Velvet Bloom Lip Color",
+                    "Soft Focus Skin Tint",
+                    "Cloud Kiss Blush",
+                    "Satin Stroke Kajal",
+                    "Glow Edit Highlighter",
+                    "Mirror Shine Gloss",
+                    "Lash Lift Mascara",
+                    "Air Matte Lip Cream",
+                    "Rose Melt Primer",
+                    "Studio Wear Concealer",
+                ],
+                "descriptions": [
+                    "Buildable payoff with smooth wear and a polished everyday finish.",
+                    "Designed for fast makeup routines with comfort-first textures.",
+                    "A flattering color story that feels light, refined, and wearable.",
+                ],
+                "price_start": 699,
+            },
+            "skincare": {
+                "brand_slugs": ["anaacoss-atelier", "dewsmith", "veloura-labs"],
+                "genders": [Product.GENDER_UNISEX, Product.GENDER_FEMALE, Product.GENDER_UNISEX],
+                "name_templates": [
+                    "Barrier Reset Cleanser",
+                    "Hydra Dew Moisturizer",
+                    "Peptide Repair Cream",
+                    "Glass Skin Serum",
+                    "Overnight Bounce Mask",
+                    "Vitamin Glow Essence",
+                    "Calm Cloud Sunscreen",
+                    "Niacinamide Water Gel",
+                    "Bright Start Toner",
+                    "Silk Recovery Eye Cream",
+                ],
+                "descriptions": [
+                    "Hydration-led skincare with a smooth, fresh-skin afterfeel.",
+                    "Built to support barrier comfort, clarity, and daily glow.",
+                    "Layer-friendly formulas for a simple but elevated routine.",
+                ],
+                "price_start": 849,
+            },
+            "haircare": {
+                "brand_slugs": ["lune-form", "dewsmith", "anaacoss-atelier"],
+                "genders": [Product.GENDER_FEMALE, Product.GENDER_UNISEX, Product.GENDER_MALE],
+                "name_templates": [
+                    "Silk Repair Hair Oil",
+                    "Root Lift Scalp Serum",
+                    "Gloss Guard Shampoo",
+                    "Soft Wave Curl Cream",
+                    "Mirror Smooth Hair Mask",
+                    "Volume Reset Dry Shampoo",
+                    "Moisture Wrap Conditioner",
+                    "Heat Shield Styling Mist",
+                    "Overnight Scalp Tonic",
+                    "Frizz Calm Finishing Balm",
+                ],
+                "descriptions": [
+                    "Scalp-first care with glossy lengths and a lighter finish.",
+                    "Made for quick grooming, styling control, and smoother strands.",
+                    "Everyday hair support without heavy residue or stiffness.",
+                ],
+                "price_start": 749,
+            },
+            "fragrance": {
+                "brand_slugs": ["amber-veil", "anaacoss-atelier", "veloura-labs"],
+                "genders": [Product.GENDER_UNISEX, Product.GENDER_FEMALE, Product.GENDER_MALE],
+                "name_templates": [
+                    "Noir Petal Eau de Parfum",
+                    "Amber Haze Mist",
+                    "Velvet Cedar Spray",
+                    "Rose Smoke Perfume",
+                    "Golden Hour Body Mist",
+                    "Soft Leather Cologne",
+                    "Moon Bloom Scent Veil",
+                    "Citrus Silk Eau Fraiche",
+                    "Spice Cashmere Elixir",
+                    "Midnight Bloom Roll On",
+                ],
+                "descriptions": [
+                    "Layered notes with soft diffusion and polished day-to-night wear.",
+                    "A signature scent profile with a balanced modern trail.",
+                    "Blended for gifting, travel, and standout everyday use.",
+                ],
+                "price_start": 999,
+            },
+            "beauty-tools": {
+                "brand_slugs": ["lune-form", "anaacoss-atelier", "dewsmith"],
+                "genders": [Product.GENDER_UNISEX, Product.GENDER_FEMALE, Product.GENDER_UNISEX],
+                "name_templates": [
+                    "Sculpt Ritual Gua Sha",
+                    "Precision Blend Brush",
+                    "Mirror Glow Puff Set",
+                    "Contour Grip Sponge",
+                    "Cooling Eye Roller",
+                    "Ceramic Blowout Brush",
+                    "Travel Vanity Kit",
+                    "Scalp Massage Comb",
+                    "Air Finish Powder Brush",
+                    "Rose Detail Tweezer",
+                ],
+                "descriptions": [
+                    "Functional beauty tools designed for clean application and travel ease.",
+                    "Simple, effective accessories that upgrade daily routines.",
+                    "Made to pair with modern makeup, skincare, and hair rituals.",
+                ],
+                "price_start": 399,
+            },
+        }
+
+        badge_cycle = ["Best Seller", "Trending", "New", "Limited", "Glow Deal", "Offer", "Signature", "Popular"]
+        product_counter = 1
+
+        for category_slug, spec in category_specs.items():
+            for idx in range(30):
+                name = spec["name_templates"][idx % len(spec["name_templates"])]
+                brand = brand_map[spec["brand_slugs"][idx % len(spec["brand_slugs"])]]
+                gender = spec["genders"][idx % len(spec["genders"])]
+                base_price = spec["price_start"] + (idx * 87)
+                price = Decimal(str(base_price))
+                discount = price - Decimal("120") if idx % 3 == 0 else None
+                image = image_bank[category_slug][idx % len(image_bank[category_slug])]
+                product = Product.objects.create(
+                    name=f"{name} {idx + 1}",
+                    brand=brand,
+                    category=category_map[category_slug],
+                    short_description=spec["descriptions"][idx % len(spec["descriptions"])],
+                    description=f"{name} {idx + 1} is designed for a premium shopping-app style catalogue with realistic beauty details and strong everyday appeal.",
+                    ingredients="Aqua, glycerin, botanical extracts, conditioning agents, fragrance where applicable.",
+                    how_to_use="Apply as part of your daily ritual and layer as needed for finish, comfort, and performance.",
+                    price=price,
+                    discount_price=discount,
+                    sku=f"ANNA-{product_counter:04d}",
+                    stock=0 if idx % 17 == 0 else 24 + idx,
+                    skin_type="all",
+                    gender=gender,
+                    product_type=category_slug,
+                    is_active=True,
+                    is_featured=product_counter <= 18,
+                    is_trending=idx % 5 == 0,
+                    is_best_seller=idx % 6 == 0,
+                    is_new_arrival=idx % 4 == 0,
+                    is_offer=discount is not None,
+                    badge=badge_cycle[idx % len(badge_cycle)],
+                    rating=Decimal(f"4.{(idx % 7) + 2}"),
+                    review_count=22 + idx,
+                )
+                ProductImage.objects.create(
+                    product=product,
+                    media_type=ProductImage.IMAGE,
+                    placement=ProductImage.GALLERY,
+                    remote_url=image,
+                    alt_text=product.name,
+                    is_primary=True,
+                )
+                ProductImage.objects.create(
+                    product=product,
+                    media_type=ProductImage.IMAGE,
+                    placement=ProductImage.GALLERY,
+                    remote_url=image.replace("w=900", "w=901"),
+                    alt_text=f"{product.name} alternate",
+                    sort_order=2,
+                )
+                ProductImage.objects.create(
+                    product=product,
+                    media_type=ProductImage.VIDEO,
+                    placement=ProductImage.GALLERY,
+                    video_url="https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
+                    thumbnail_url=image,
+                    alt_text=f"{product.name} texture video",
+                    sort_order=3,
+                )
+                ProductImage.objects.create(
+                    product=product,
+                    media_type=ProductImage.IMAGE,
+                    placement=ProductImage.BEFORE,
+                    remote_url="https://images.unsplash.com/photo-1515377905703-c4788e51af15?auto=format&fit=crop&w=900&q=80",
+                    alt_text=f"{product.name} before result",
+                    sort_order=10,
+                )
+                ProductImage.objects.create(
+                    product=product,
+                    media_type=ProductImage.VIDEO,
+                    placement=ProductImage.AFTER,
+                    video_url="https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
+                    thumbnail_url=image,
+                    alt_text=f"{product.name} after result video",
+                    sort_order=11,
+                )
+                if category_slug != "beauty-tools":
+                    ProductVariant.objects.create(product=product, name="Size", value="Full size", sku=f"ANNA-{product_counter:04d}-FULL", stock=18)
+                    ProductVariant.objects.create(product=product, name="Size", value="Travel", sku=f"ANNA-{product_counter:04d}-TRAVEL", stock=12, price_delta=Decimal("-150"))
+                product_counter += 1
 
         Coupon.objects.update_or_create(
             code="ROSEGOLD20",
@@ -159,4 +329,4 @@ class Command(BaseCommand):
         ]:
             Testimonial.objects.update_or_create(name=name, defaults={"role": role, "quote": quote, "rating": 5, "is_active": True})
 
-        self.stdout.write(self.style.SUCCESS("Anaacoss sample store seeded."))
+        self.stdout.write(self.style.SUCCESS("Anaacoss catalogue seeded with 150 products."))

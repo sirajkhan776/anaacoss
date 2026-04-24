@@ -1,4 +1,5 @@
 from django.db.models import Q
+from django.db.models.functions import Lower
 from django.shortcuts import get_object_or_404, render
 from rest_framework import permissions, viewsets
 from rest_framework.decorators import action
@@ -26,13 +27,18 @@ def banner_media_type(banner):
 
 def home(request):
     hero_banners = Banner.objects.filter(is_active=True, placement="hero")[:3]
+    home_feed = Product.objects.visible().select_related("brand", "category").prefetch_related("images")
     ctx = base_context()
     ctx.update(
         {
             "featured_categories": Category.objects.filter(is_featured=True)[:6],
             "trending_products": Product.objects.visible().filter(is_trending=True).prefetch_related("images")[:8],
             "best_sellers": Product.objects.visible().filter(is_best_seller=True).prefetch_related("images")[:8],
+            "home_products": home_feed[:12],
+            "home_feed_count": home_feed.count(),
             "new_arrivals": Product.objects.visible().filter(is_new_arrival=True).prefetch_related("images")[:8],
+            "home_categories": Category.objects.filter(parent__isnull=True),
+            "home_brands": Brand.objects.order_by("name"),
             "hero_banners": hero_banners,
             "mobile_hero_slides": [
                 {
@@ -112,12 +118,18 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
             qs = qs.filter(Q(name__icontains=q) | Q(short_description__icontains=q) | Q(brand__name__icontains=q))
         if category := params.get("category"):
             qs = qs.filter(Q(category__slug=category) | Q(category__parent__slug=category))
+        if gender := params.get("gender"):
+            qs = qs.filter(gender=gender)
         if brand := params.get("brand"):
-            qs = qs.filter(brand__slug=brand)
+            brand_values = [item.strip() for item in brand.split(",") if item.strip()]
+            if brand_values:
+                qs = qs.filter(brand__slug__in=brand_values)
         if skin_type := params.get("skin_type"):
             qs = qs.filter(skin_type=skin_type)
         if params.get("offer") == "true":
             qs = qs.filter(is_offer=True)
+        if params.get("availability") == "in_stock":
+            qs = qs.filter(stock__gt=0)
         if min_price := params.get("min_price"):
             qs = qs.filter(price__gte=min_price)
         if max_price := params.get("max_price"):
@@ -125,8 +137,23 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
         if rating := params.get("rating"):
             qs = qs.filter(rating__gte=rating)
         sort = params.get("sort")
+        sort_map = {
+            "price_low": "price",
+            "price_high": "-price",
+            "newest": "-created_at",
+            "popular": "-review_count",
+            "name": Lower("name"),
+        }
         if sort in {"price", "-price", "rating", "-rating", "created_at", "-created_at"}:
             qs = qs.order_by(sort)
+        elif sort in sort_map:
+            mapped = sort_map[sort]
+            if sort == "name":
+                qs = qs.order_by(mapped)
+            elif sort == "popular":
+                qs = qs.order_by("-review_count", "-rating", "-created_at")
+            else:
+                qs = qs.order_by(mapped)
         return qs
 
     def get_serializer_class(self):

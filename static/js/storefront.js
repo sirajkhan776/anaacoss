@@ -24,6 +24,23 @@ const Storefront = (() => {
       location: false,
       dashboardAddress: false,
       accountTrigger: false,
+      homeFeed: false,
+    },
+    homeFeed: {
+      page: 1,
+      hasNext: true,
+      loading: false,
+      currentPanel: "sort",
+      loadedIds: new Set(),
+      filters: {
+        sort: "",
+        category: "",
+        gender: "",
+        min_price: "",
+        max_price: "",
+        brand: "",
+        availability: "",
+      },
     },
   };
 
@@ -307,6 +324,143 @@ const Storefront = (() => {
       if (key === "non_field_errors" || key === "detail") return text;
       return `${key}: ${text}`;
     }).join(" ");
+  }
+
+  function homeFeedQuery(page = 1) {
+    const params = new URLSearchParams();
+    params.set("page", String(page));
+    Object.entries(state.homeFeed.filters).forEach(([key, value]) => {
+      if (value !== "" && value !== null && value !== undefined) params.set(key, value);
+    });
+    return `/api/products/?${params.toString()}`;
+  }
+
+  function resetHomeFeedState() {
+    state.homeFeed.page = 1;
+    state.homeFeed.hasNext = true;
+    state.homeFeed.loading = false;
+    state.homeFeed.loadedIds = new Set();
+    $$("[data-home-product-grid] [data-product-id]").forEach((card) => state.homeFeed.loadedIds.add(String(card.dataset.productId)));
+  }
+
+  function renderHomeFilterPills() {
+    const root = $("[data-home-filter-pills]");
+    if (!root) return;
+    const labels = [];
+    const { sort, category, gender, min_price, max_price, brand, availability } = state.homeFeed.filters;
+    if (sort) labels.push({ key: "sort", label: `Sort: ${sort.replace("_", " ")}` });
+    if (category) labels.push({ key: "category", label: `Category: ${category}` });
+    if (gender) labels.push({ key: "gender", label: `Gender: ${gender}` });
+    if (brand) labels.push({ key: "brand", label: `Brand: ${brand}` });
+    if (availability) labels.push({ key: "availability", label: "In Stock" });
+    if (min_price || max_price) labels.push({ key: "price", label: `Price: ${min_price || 0}-${max_price || "max"}` });
+    if (!labels.length) {
+      root.innerHTML = "";
+      root.hidden = true;
+      syncHomeFilterTriggerState();
+      return;
+    }
+    root.hidden = false;
+    root.innerHTML = labels.map((item) => `<button class="home-filter-pill" type="button" data-home-filter-pill="${item.key}">${item.label} <i class="fa-solid fa-xmark"></i></button>`).join("");
+    syncHomeFilterTriggerState();
+  }
+
+  function setHomeFeedLoading(active) {
+    state.homeFeed.loading = active;
+    const loader = $("[data-home-feed-loader]");
+    if (loader) loader.hidden = !active;
+  }
+
+  function setHomeFeedEnd(show) {
+    const end = $("[data-home-feed-end]");
+    if (end) end.hidden = !show;
+  }
+
+  function setHomeFeedCount(count) {
+    const badge = $("[data-home-feed-count]");
+    if (!badge) return;
+    const total = Number(count) || 0;
+    badge.textContent = `${total} item${total === 1 ? "" : "s"}`;
+  }
+
+  function syncHomeFilterTriggerState() {
+    $$("[data-home-filter-open]").forEach((button) => {
+      const panel = button.dataset.homeFilterOpen;
+      let isActive = false;
+      if (panel === "sort") isActive = Boolean(state.homeFeed.filters.sort);
+      if (panel === "category") isActive = Boolean(state.homeFeed.filters.category);
+      if (panel === "gender") isActive = Boolean(state.homeFeed.filters.gender);
+      if (panel === "filter") {
+        const { min_price, max_price, brand, availability } = state.homeFeed.filters;
+        isActive = Boolean(min_price || max_price || brand || availability);
+      }
+      button.classList.toggle("is-active", isActive);
+    });
+  }
+
+  async function loadHomeFeedPage(page, options = {}) {
+    const grid = $("[data-home-product-grid]");
+    if (!grid || state.homeFeed.loading || (!state.homeFeed.hasNext && page !== 1)) return;
+    setHomeFeedLoading(true);
+    try {
+      const payload = await api(homeFeedQuery(page), { method: "GET", silent: true });
+      const results = Array.isArray(payload?.results) ? payload.results : [];
+      setHomeFeedCount(payload?.count ?? results.length);
+      if (page === 1) {
+        grid.innerHTML = results.length ? results.map((product) => productCardHtml(product)).join("") : `<p class="empty-state">No products match these filters.</p>`;
+        state.homeFeed.loadedIds = new Set(results.map((product) => String(product.id)));
+      } else {
+        const fresh = results.filter((product) => !state.homeFeed.loadedIds.has(String(product.id)));
+        if (fresh.length) {
+          grid.insertAdjacentHTML("beforeend", fresh.map((product) => productCardHtml(product)).join(""));
+          fresh.forEach((product) => state.homeFeed.loadedIds.add(String(product.id)));
+        }
+      }
+      state.homeFeed.page = page;
+      state.homeFeed.hasNext = Boolean(payload?.next);
+      setHomeFeedEnd(!payload?.next && page > 1);
+      if (!results.length && page === 1) setHomeFeedEnd(false);
+    } catch (error) {
+      toast(flattenError(error) || "Unable to load products");
+    } finally {
+      setHomeFeedLoading(false);
+    }
+  }
+
+  async function refreshHomeFeed() {
+    state.homeFeed.page = 1;
+    state.homeFeed.hasNext = true;
+    state.homeFeed.loadedIds = new Set();
+    setHomeFeedEnd(false);
+    await loadHomeFeedPage(1);
+  }
+
+  function syncHomeFilterModal() {
+    const currentPanel = state.homeFeed.currentPanel;
+    const title = $("[data-home-filter-title]");
+    const kicker = $("[data-home-filter-kicker]");
+    const titles = {
+      sort: "Sort products",
+      category: "Choose category",
+      gender: "Choose gender",
+      filter: "More filters",
+    };
+    $$("[data-home-filter-panel]").forEach((panel) => {
+      panel.hidden = panel.dataset.homeFilterPanel !== currentPanel;
+    });
+    if (title) title.textContent = titles[currentPanel] || "Refine products";
+    if (kicker) kicker.textContent = currentPanel === "filter" ? "Refine" : "Browse";
+    $$("[data-home-filter-value]").forEach((button) => {
+      const key = button.dataset.homeFilterValue;
+      button.classList.toggle("active", state.homeFeed.filters[key] === button.dataset.value);
+    });
+    const form = $(".home-advanced-filter-form");
+    if (form) {
+      Object.entries(state.homeFeed.filters).forEach(([key, value]) => {
+        const field = form.elements.namedItem(key);
+        if (field) field.value = value;
+      });
+    }
   }
 
   async function copyToClipboard(value) {
@@ -975,6 +1129,108 @@ const Storefront = (() => {
     });
   }
 
+  function bindHomeFeed() {
+    const root = $("[data-home-feed-root]");
+    if (!root) return;
+    resetHomeFeedState();
+    renderHomeFilterPills();
+    syncHomeFilterTriggerState();
+    setHomeFeedEnd(false);
+    const modal = $("[data-home-filter-modal]");
+
+    if (!state.handlersBound.homeFeed) {
+      state.handlersBound.homeFeed = true;
+
+      document.addEventListener("click", async (event) => {
+        const trigger = event.target.closest("[data-home-filter-open]");
+        if (trigger) {
+          event.preventDefault();
+          state.homeFeed.currentPanel = trigger.dataset.homeFilterOpen;
+          syncHomeFilterModal();
+          openModal(modal, trigger);
+          return;
+        }
+
+        const option = event.target.closest("[data-home-filter-value]");
+        if (option) {
+          event.preventDefault();
+          state.homeFeed.filters[option.dataset.homeFilterValue] = option.dataset.value;
+          syncHomeFilterModal();
+          renderHomeFilterPills();
+          closeModal(modal);
+          await refreshHomeFeed();
+          return;
+        }
+
+        const pill = event.target.closest("[data-home-filter-pill]");
+        if (pill) {
+          event.preventDefault();
+          const key = pill.dataset.homeFilterPill;
+          if (key === "price") {
+            state.homeFeed.filters.min_price = "";
+            state.homeFeed.filters.max_price = "";
+          } else {
+            state.homeFeed.filters[key] = "";
+          }
+          renderHomeFilterPills();
+          syncHomeFilterModal();
+          await refreshHomeFeed();
+          return;
+        }
+
+        const closeBtn = event.target.closest("[data-home-filter-close]");
+        if (closeBtn) {
+          event.preventDefault();
+          closeModal(modal);
+        }
+
+        const resetBtn = event.target.closest("[data-home-filter-reset]");
+        if (resetBtn) {
+          event.preventDefault();
+          state.homeFeed.filters = {
+            sort: "",
+            category: "",
+            gender: "",
+            min_price: "",
+            max_price: "",
+            brand: "",
+            availability: "",
+          };
+          syncHomeFilterModal();
+          renderHomeFilterPills();
+          closeModal(modal);
+          await refreshHomeFeed();
+        }
+      });
+
+      modal?.addEventListener("click", (event) => {
+        if (event.target === modal) closeModal(modal);
+      });
+
+      document.addEventListener("submit", async (event) => {
+        const form = event.target.closest(".home-advanced-filter-form");
+        if (!form) return;
+        event.preventDefault();
+        const payload = new FormData(form);
+        ["min_price", "max_price", "brand", "availability"].forEach((key) => {
+          state.homeFeed.filters[key] = String(payload.get(key) || "").trim();
+        });
+        renderHomeFilterPills();
+        closeModal(modal);
+        await refreshHomeFeed();
+      });
+
+      window.addEventListener("scroll", async () => {
+        const grid = $("[data-home-product-grid]");
+        if (!grid || state.homeFeed.loading || !state.homeFeed.hasNext) return;
+        const rect = grid.getBoundingClientRect();
+        if (rect.bottom - window.innerHeight < 600) {
+          await loadHomeFeedPage(state.homeFeed.page + 1);
+        }
+      }, { passive: true });
+    }
+  }
+
   function bindFilters() {
     const form = $("[data-filter-form]");
     if (!form) return;
@@ -1607,6 +1863,7 @@ const Storefront = (() => {
     bindGallery();
     bindLocationModal();
     bindShareModal();
+    bindHomeFeed();
     bindHomeHero();
     bindCategoryMarquee();
     bindDashboard();
