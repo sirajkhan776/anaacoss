@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f1eef9"/>
+      <stop offset="55%" stop-color="#ddd6f3"/>
+      <stop offset="100%" stop-color="#9a8ccf"/>
+    </linearGradient>
+    <linearGradient id="tube" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.94"/>
+      <stop offset="100%" stop-color="#e8e2fb" stop-opacity="0.68"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <circle cx="1220" cy="170" r="150" fill="#ffffff" opacity="0.24"/>
+  <circle cx="1310" cy="650" r="230" fill="#c4bae8" opacity="0.22"/>
+  <rect x="900" y="160" width="350" height="520" rx="48" fill="#ffffff" opacity="0.28"/>
+  <rect x="980" y="220" width="120" height="330" rx="34" fill="url(#tube)" stroke="#9a8ccf" stroke-width="8"/>
+  <rect x="1012" y="550" width="56" height="48" rx="14" fill="#7a6cb4"/>
+  <rect x="1105" y="270" width="70" height="250" rx="26" fill="#fffafc" stroke="#9a8ccf" stroke-width="8"/>
+  <rect x="1125" y="230" width="30" height="60" rx="12" fill="#6f61a7"/>
+  <text x="150" y="220" fill="#6d5da1" font-family="Arial, sans-serif" font-size="34" font-weight="700" letter-spacing="8">SILK FINISH</text>
+  <text x="150" y="340" fill="#171313" font-family="Georgia, serif" font-size="110" font-weight="700">Glossy Hair</text>
+  <text x="150" y="440" fill="#171313" font-family="Georgia, serif" font-size="110" font-weight="700">Care Ritual</text>
+  <text x="150" y="530" fill="#4f4340" font-family="Arial, sans-serif" font-size="34">Nourishing shampoos, masks, and serums designed for softness, shine, and strength.</text>
+</svg>

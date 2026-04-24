@@ -12,7 +12,7 @@
       <button class="btn btn-dark" type="submit">Apply</button>
     </form>
     <button class="btn btn-ghost full" type="button" data-remove-coupon>Remove coupon</button>
-    <a class="btn btn-dark full" href="/checkout/" data-spa>Checkout</a>
+    <a class="btn btn-dark full" href="/checkout/" data-spa data-auth-required data-auth-return-url="/checkout/">Checkout</a>
   </aside>
 </section>
 {% endblock %}

@@ -7,13 +7,19 @@ const Storefront = (() => {
     user: null,
     addresses: [],
     selectedAddressId: null,
+    pendingRequests: 0,
+    authReturnUrl: "",
+    pendingAuthAction: null,
+    heroTimer: null,
+    categoryMarqueeRaf: null,
+    bootstrapped: false,
     handlersBound: {
       navigation: false,
+      auth: false,
       products: false,
       cart: false,
       location: false,
       accountTrigger: false,
-      accountPanel: false,
     },
   };
 
@@ -37,39 +43,209 @@ const Storefront = (() => {
     "Kajal",
     "Perfume",
   ];
+  let authMessageTimer = null;
 
   function csrf() {
     const token = document.cookie.split("; ").find((row) => row.startsWith("csrftoken="));
     return token ? decodeURIComponent(token.split("=")[1]) : "";
   }
 
-  async function api(url, options = {}) {
-    const isFormData = options.body instanceof FormData;
-    const headers = {
-      "X-CSRFToken": csrf(),
-      "X-Requested-With": "XMLHttpRequest",
-      ...(options.headers || {}),
-    };
-    if (!isFormData) headers["Content-Type"] = "application/json";
-    if (state.access) headers.Authorization = `Bearer ${state.access}`;
-    const response = await fetch(url, { ...options, headers });
-    if (response.status === 401 && state.refresh) {
-      const refreshed = await fetch("/api/auth/token/refresh/", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-CSRFToken": csrf() },
-        body: JSON.stringify({ refresh: state.refresh }),
-      });
-      if (refreshed.ok) {
-        const data = await refreshed.json();
-        setTokens(data.access, data.refresh || state.refresh);
-        return api(url, options);
-      } else {
-        clearTokens();
-      }
+  function currentUrl() {
+    return `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  }
+
+  function toast(message) {
+    const el = $("[data-toast]");
+    if (!el) return;
+    el.textContent = message;
+    el.classList.add("show");
+    window.setTimeout(() => el.classList.remove("show"), 2600);
+  }
+
+  function clearAuthMessage() {
+    const el = $("[data-auth-message]");
+    if (authMessageTimer) {
+      window.clearTimeout(authMessageTimer);
+      authMessageTimer = null;
     }
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw data;
-    return data;
+    if (el) el.textContent = "";
+  }
+
+  function setAuthMessage(message, autoClear = false) {
+    const el = $("[data-auth-message]");
+    if (!el) return;
+    clearAuthMessage();
+    el.textContent = message || "";
+    if (message && autoClear) {
+      authMessageTimer = window.setTimeout(() => {
+        if (el) el.textContent = "";
+        authMessageTimer = null;
+      }, 3500);
+    }
+  }
+
+  function toggleGlobalLoader(active) {
+    const loader = $("[data-global-loader]");
+    if (!loader) return;
+    loader.classList.toggle("is-visible", Boolean(active));
+  }
+
+  function beginPending() {
+    state.pendingRequests += 1;
+    if (state.bootstrapped) toggleGlobalLoader(true);
+  }
+
+  function endPending() {
+    state.pendingRequests = Math.max(0, state.pendingRequests - 1);
+    if (state.bootstrapped) toggleGlobalLoader(state.pendingRequests > 0);
+    else toggleGlobalLoader(false);
+  }
+
+  async function runWithPending(task, active = true) {
+    if (!active) return task();
+    beginPending();
+    try {
+      return await task();
+    } finally {
+      endPending();
+    }
+  }
+
+  async function withLockedButton(button, task) {
+    if (!button) return task();
+    if (button.disabled) return null;
+    button.disabled = true;
+    button.classList.add("is-loading");
+    button.setAttribute("aria-busy", "true");
+    try {
+      return await task();
+    } finally {
+      button.disabled = false;
+      button.classList.remove("is-loading");
+      button.removeAttribute("aria-busy");
+    }
+  }
+
+  function setCountBadge(counts, value) {
+    counts.forEach((count) => {
+      count.textContent = value;
+      count.hidden = value < 1;
+    });
+  }
+
+  function fullName(user) {
+    if (!user) return "Guest";
+    const name = [user.first_name, user.last_name].filter(Boolean).join(" ").trim();
+    return name || user.username || "Guest";
+  }
+
+  function selectedAddress() {
+    return state.addresses.find((item) => String(item.id) === String(state.selectedAddressId)) || null;
+  }
+
+  function addressLocationText(address) {
+    if (!address) return "Add your delivery address";
+    return [address.label, address.city, address.postal_code].filter(Boolean).join(", ");
+  }
+
+  function addressFullText(address) {
+    return [address.line1, address.line2, address.city, address.state, address.postal_code].filter(Boolean).join(", ");
+  }
+
+  function setAuthTab(mode = "login") {
+    $$("[data-auth-tab]").forEach((tab) => tab.classList.toggle("active", tab.dataset.authTab === mode));
+    $$("[data-auth-form]").forEach((form) => form.classList.toggle("active", form.dataset.authForm === mode));
+  }
+
+  function openModal(modal, trigger) {
+    if (!modal) return;
+    modal._returnFocusEl = trigger || document.activeElement;
+    modal.setAttribute("aria-hidden", "false");
+    modal.classList.add("open");
+    document.body.classList.add("modal-open");
+    const dialog = modal.querySelector('[role="dialog"]');
+    const autofocusTarget = modal.querySelector("input, button, select, textarea, a[href], [tabindex]:not([tabindex='-1'])");
+    (autofocusTarget || dialog)?.focus?.();
+  }
+
+  function closeModal(modal) {
+    if (!modal) return;
+    const returnFocusEl = modal._returnFocusEl;
+    if (modal.contains(document.activeElement)) document.activeElement.blur?.();
+    modal.classList.remove("open");
+    modal.setAttribute("aria-hidden", "true");
+    if (!$$(".modal-shell.open").length) document.body.classList.remove("modal-open");
+    if (returnFocusEl && document.contains(returnFocusEl)) returnFocusEl.focus?.();
+  }
+
+  function openAuthModal(trigger, options = {}) {
+    state.authReturnUrl = options.returnUrl || currentUrl();
+    state.pendingAuthAction = options.onSuccess || null;
+    setAuthTab(options.tab || trigger?.dataset.authTab || "login");
+    clearAuthMessage();
+    openModal($("[data-auth-modal]"), trigger);
+  }
+
+  function fillCheckoutForm(user, address) {
+    const form = $("[data-checkout-form]");
+    if (!form) return;
+    const values = {
+      full_name: address?.full_name || fullName(user),
+      email: user?.email || "",
+      phone: address?.phone || user?.phone || "",
+      address_line1: address?.line1 || "",
+      address_line2: address?.line2 || "",
+      city: address?.city || "",
+      state: address?.state || "",
+      postal_code: address?.postal_code || "",
+    };
+    Object.entries(values).forEach(([name, value]) => {
+      const field = form.elements.namedItem(name);
+      if (field && !field.value && value) field.value = value;
+    });
+  }
+
+  async function api(url, options = {}) {
+    const { silent = false, ...fetchOptions } = options;
+    return runWithPending(async () => {
+      const isFormData = fetchOptions.body instanceof FormData;
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 15000);
+      const headers = {
+        "X-CSRFToken": csrf(),
+        "X-Requested-With": "XMLHttpRequest",
+        ...(fetchOptions.headers || {}),
+      };
+      if (!isFormData) headers["Content-Type"] = "application/json";
+      if (state.access) headers.Authorization = `Bearer ${state.access}`;
+      try {
+        const response = await fetch(url, { ...fetchOptions, headers, signal: controller.signal });
+        if (response.status === 401 && state.refresh) {
+          const refreshed = await fetch("/api/auth/token/refresh/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-CSRFToken": csrf() },
+            body: JSON.stringify({ refresh: state.refresh }),
+            signal: controller.signal,
+          });
+          if (refreshed.ok) {
+            const data = await refreshed.json();
+            setTokens(data.access, data.refresh || state.refresh);
+            return api(url, options);
+          }
+          clearTokens();
+        }
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw data;
+        return data;
+      } catch (error) {
+        if (error?.name === "AbortError") {
+          throw { detail: "Request timed out. Please try again." };
+        }
+        throw error;
+      } finally {
+        window.clearTimeout(timeout);
+      }
+    }, !silent);
   }
 
   function setTokens(access, refresh) {
@@ -94,26 +270,22 @@ const Storefront = (() => {
     localStorage.removeItem("anaacoss_refresh");
   }
 
-  function toast(message) {
-    const el = $("[data-toast]");
-    if (!el) return;
-    el.textContent = message;
-    el.classList.add("show");
-    setTimeout(() => el.classList.remove("show"), 2600);
-  }
-
-  function addressLocationText(address) {
-    if (!address) return "Add your delivery address";
-    return [address.label, address.city, address.postal_code].filter(Boolean).join(", ");
-  }
-
-  function addressFullText(address) {
-    return [address.line1, address.line2, address.city, address.state, address.postal_code].filter(Boolean).join(", ");
+  function flattenError(error) {
+    if (typeof error === "string") return error;
+    return Object.entries(error || {}).map(([key, value]) => {
+      const text = Array.isArray(value) ? value.join(", ") : value;
+      if (key === "non_field_errors" || key === "detail") return text;
+      return `${key}: ${text}`;
+    }).join(" ");
   }
 
   function renderSavedAddresses() {
     const root = $("[data-saved-addresses]");
     if (!root) return;
+    if (!state.user) {
+      root.innerHTML = `<p class="location-empty">Login to see your saved delivery addresses.</p>`;
+      return;
+    }
     if (!state.addresses.length) {
       root.innerHTML = `<p class="location-empty">No saved addresses yet.</p>`;
       return;
@@ -123,103 +295,11 @@ const Storefront = (() => {
         <input type="radio" name="saved_address" value="${address.id}" ${String(state.selectedAddressId) === String(address.id) ? "checked" : ""}>
         <span class="saved-address-copy">
           <strong>${address.full_name}</strong>
-          <span class="saved-address-meta">${address.label}${address.is_default ? " • Default" : ""}</span>
+          <span class="saved-address-meta">${address.label}${address.is_default ? " - Default" : ""}</span>
           <p>${addressFullText(address)}</p>
         </span>
       </label>
     `).join("");
-  }
-
-  async function navigate(url, push = true) {
-    const response = await fetch(url, { headers: { "X-Requested-With": "XMLHttpRequest" } });
-    const html = await response.text();
-    const doc = new DOMParser().parseFromString(html, "text/html");
-    const nextRoot = doc.querySelector("#page-root");
-    if (!nextRoot) {
-      window.location.href = url;
-      return;
-    }
-    $("#page-root").innerHTML = nextRoot.innerHTML;
-    document.title = doc.title;
-    if (push) history.pushState({}, "", url);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-    bindPage();
-  }
-
-  function bindNavigation() {
-    if (state.handlersBound.navigation) return;
-    state.handlersBound.navigation = true;
-    document.addEventListener("click", (event) => {
-      const link = event.target.closest("a[data-spa]");
-      if (!link || link.origin !== location.origin) return;
-      event.preventDefault();
-      navigate(link.href);
-    });
-    window.addEventListener("popstate", () => navigate(location.href, false));
-  }
-
-  function openModal(modal, trigger) {
-    if (!modal) return;
-    modal.dataset.returnFocus = trigger ? "true" : "";
-    if (trigger?.id) modal.dataset.returnFocusId = trigger.id;
-    else delete modal.dataset.returnFocusId;
-    modal._returnFocusEl = trigger || document.activeElement;
-    modal.setAttribute("aria-hidden", "false");
-    modal.classList.add("open");
-    document.body.classList.add("modal-open");
-    const dialog = modal.querySelector('[role="dialog"]');
-    const autofocusTarget = modal.querySelector("input, button, select, textarea, a[href], [tabindex]:not([tabindex='-1'])");
-    (autofocusTarget || dialog)?.focus?.();
-  }
-
-  function closeModal(modal) {
-    if (!modal) return;
-    const returnFocusEl = modal._returnFocusEl;
-    if (modal.contains(document.activeElement)) {
-      document.activeElement.blur?.();
-    }
-    modal.classList.remove("open");
-    modal.setAttribute("aria-hidden", "true");
-    if (!$$(".modal-shell.open").length) {
-      document.body.classList.remove("modal-open");
-    }
-    if (returnFocusEl && document.contains(returnFocusEl)) {
-      returnFocusEl.focus?.();
-    }
-  }
-
-  function bindAuth() {
-    const modal = $("[data-auth-modal]");
-    $$("[data-auth-close]").forEach((btn) => btn.addEventListener("click", () => closeModal(modal)));
-    modal?.addEventListener("click", (event) => {
-      if (event.target === modal) closeModal(modal);
-    });
-    $$("[data-auth-tab]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        $$("[data-auth-tab]").forEach((tab) => tab.classList.toggle("active", tab === btn));
-        $$("[data-auth-form]").forEach((form) => form.classList.toggle("active", form.dataset.authForm === btn.dataset.authTab));
-      });
-    });
-    $$("[data-auth-form]").forEach((form) => {
-      form.addEventListener("submit", async (event) => {
-        event.preventDefault();
-        const mode = form.dataset.authForm;
-        const payload = Object.fromEntries(new FormData(form).entries());
-        try {
-          const data = await api(`/api/auth/${mode}/`, { method: "POST", body: JSON.stringify(payload) });
-          setTokens(data.access, data.refresh);
-          state.user = data.user;
-          $("[data-auth-message]").textContent = `Signed in as ${data.user.first_name || data.user.username}`;
-          closeModal(modal);
-          toast("Account ready");
-          updateCartBadge();
-          updateWishlistBadge();
-          updateDeliveryStrip();
-        } catch (error) {
-          $("[data-auth-message]").textContent = flattenError(error);
-        }
-      });
-    });
   }
 
   async function bootstrapSession(force = false) {
@@ -228,7 +308,7 @@ const Storefront = (() => {
     state.refresh = state.refresh || localStorage.getItem("anaacoss_refresh");
     state.sessionPromise = (async () => {
       try {
-        const user = await api("/api/auth/me/");
+        const user = await api("/api/auth/me/", { silent: true });
         state.user = user;
         state.isAuthenticated = true;
         document.body?.setAttribute("data-user-authenticated", "true");
@@ -245,107 +325,215 @@ const Storefront = (() => {
 
   async function ensureUserProfile() {
     if (state.user) return state.user;
+    return bootstrapSession();
+  }
+
+  async function updateCartBadge(options = {}) {
     try {
-      return await bootstrapSession();
+      const cart = await api("/api/cart/", { silent: options.silent });
+      setCountBadge($$("[data-cart-count], [data-cart-count-mobile]"), Number(cart.count || 0));
+      renderCart(cart);
+      return cart;
     } catch {
       return null;
-    } 
+    }
+  }
+
+  async function updateWishlistBadge(options = {}) {
+    const counts = $$("[data-wishlist-count], [data-wishlist-count-mobile]");
+    if (!counts.length) return 0;
+    if (!state.access && !state.user && !state.isAuthenticated) {
+      setCountBadge(counts, 0);
+      return 0;
+    }
+    try {
+      const wishlist = await api("/api/wishlist/", { silent: options.silent });
+      setCountBadge(counts, wishlist.length || 0);
+      return wishlist.length || 0;
+    } catch {
+      setCountBadge(counts, 0);
+      return 0;
+    }
+  }
+
+  async function updateDeliveryStrip(options = {}) {
+    const strip = $("[data-delivery-strip]");
+    const name = $("[data-delivery-name]");
+    const location = $("[data-delivery-location]");
+    if (!strip || !name || !location) return null;
+    const user = await ensureUserProfile();
+    if (!user) {
+      state.addresses = [];
+      state.selectedAddressId = null;
+      name.textContent = "Guest";
+      location.textContent = "";
+      location.hidden = true;
+      strip.hidden = false;
+      renderSavedAddresses();
+      return null;
+    }
+    try {
+      const addresses = await api("/api/auth/addresses/", { silent: options.silent });
+      state.addresses = addresses;
+      const preferredAddress = addresses.find((item) => item.is_default) || addresses[0] || null;
+      state.selectedAddressId = preferredAddress?.id || null;
+      name.textContent = fullName(user);
+      location.textContent = preferredAddress ? addressLocationText(preferredAddress) : "";
+      location.hidden = !preferredAddress;
+      strip.hidden = false;
+      renderSavedAddresses();
+      fillCheckoutForm(user, preferredAddress);
+      return { user, addresses };
+    } catch {
+      name.textContent = fullName(user);
+      location.textContent = "";
+      location.hidden = true;
+      strip.hidden = false;
+      state.addresses = [];
+      state.selectedAddressId = null;
+      renderSavedAddresses();
+      return null;
+    }
+  }
+
+  async function navigate(url, push = true) {
+    await runWithPending(async () => {
+      clearAuthMessage();
+      const response = await fetch(url, { headers: { "X-Requested-With": "XMLHttpRequest" } });
+      const html = await response.text();
+      const doc = new DOMParser().parseFromString(html, "text/html");
+      const nextRoot = doc.querySelector("#page-root");
+      if (!nextRoot) {
+        window.location.href = url;
+        return;
+      }
+      $("#page-root").innerHTML = nextRoot.innerHTML;
+      document.title = doc.title;
+      if (push) history.pushState({}, "", url);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      bindPage();
+    });
+  }
+
+  function bindNavigation() {
+    if (state.handlersBound.navigation) return;
+    state.handlersBound.navigation = true;
+    document.addEventListener("click", async (event) => {
+      const link = event.target.closest("a[data-spa]");
+      if (!link || link.origin !== location.origin) return;
+      if (link.matches("[data-auth-required]")) {
+        event.preventDefault();
+        const user = await ensureUserProfile();
+        if (!user) {
+          openAuthModal(link, {
+            returnUrl: link.dataset.authReturnUrl || link.getAttribute("href") || currentUrl(),
+            tab: link.dataset.authTab || "login",
+          });
+          return;
+        }
+      }
+      event.preventDefault();
+      navigate(link.href);
+    });
+    window.addEventListener("popstate", () => navigate(location.href, false));
+  }
+
+  function bindAuth() {
+    if (state.handlersBound.auth) return;
+    state.handlersBound.auth = true;
+    const modal = $("[data-auth-modal]");
+
+    $$("[data-auth-close]").forEach((btn) => btn.addEventListener("click", () => {
+      clearAuthMessage();
+      closeModal(modal);
+    }));
+    modal?.addEventListener("click", (event) => {
+      if (event.target === modal) {
+        clearAuthMessage();
+        closeModal(modal);
+      }
+    });
+
+    $$("[data-auth-tab]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        clearAuthMessage();
+        setAuthTab(btn.dataset.authTab);
+      });
+    });
+
+    document.addEventListener("click", (event) => {
+      const trigger = event.target.closest("[data-auth-open]");
+      if (!trigger) return;
+      event.preventDefault();
+      openAuthModal(trigger, {
+        returnUrl: trigger.dataset.authReturnUrl || currentUrl(),
+        tab: trigger.dataset.authTab || "login",
+      });
+    });
+
+    document.addEventListener("click", (event) => {
+      const toggle = event.target.closest("[data-password-toggle]");
+      if (!toggle) return;
+      const field = toggle.closest(".password-field")?.querySelector('input[type="password"], input[type="text"]');
+      if (!field) return;
+      const visible = field.type === "text";
+      field.type = visible ? "password" : "text";
+      toggle.setAttribute("aria-label", visible ? "Show password" : "Hide password");
+      toggle.setAttribute("aria-pressed", String(!visible));
+      const icon = $("i", toggle);
+      if (icon) {
+        icon.className = visible ? "fa-regular fa-eye" : "fa-regular fa-eye-slash";
+      }
+    });
+
+    $$("[data-auth-form]").forEach((form) => {
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const submitter = event.submitter || form.querySelector('[type="submit"]');
+        const mode = form.dataset.authForm;
+        const payload = Object.fromEntries(new FormData(form).entries());
+        await withLockedButton(submitter, async () => {
+          try {
+            const data = await api(`/api/auth/${mode}/`, { method: "POST", body: JSON.stringify(payload) });
+            setTokens(data.access, data.refresh);
+            state.user = data.user;
+            form.reset();
+            closeModal(modal);
+            toast(mode === "register" ? "Account created" : "Welcome back");
+            await Promise.all([
+              updateCartBadge(),
+              updateWishlistBadge(),
+              updateDeliveryStrip(),
+            ]);
+            fillCheckoutForm(data.user, selectedAddress());
+            const nextAction = state.pendingAuthAction;
+            const returnUrl = state.authReturnUrl || currentUrl();
+            state.pendingAuthAction = null;
+            state.authReturnUrl = "";
+            if (nextAction) {
+              await nextAction();
+            } else if (returnUrl && returnUrl !== currentUrl()) {
+              await navigate(returnUrl);
+            }
+          } catch (error) {
+            setAuthMessage(flattenError(error), true);
+          }
+        });
+      });
+    });
   }
 
   function bindAccountTrigger() {
     if (state.handlersBound.accountTrigger) return;
     state.handlersBound.accountTrigger = true;
     $$("[data-account-open]").forEach((btn) => btn.addEventListener("click", async () => {
-      const user = await bootstrapSession();
+      const user = await ensureUserProfile();
       if (user) {
         navigate("/dashboard/");
         return;
       }
-      openModal($("[data-auth-modal]"), btn);
+      openAuthModal(btn, { returnUrl: currentUrl() });
     }));
-  }
-
-  function flattenError(error) {
-    if (typeof error === "string") return error;
-    return Object.entries(error || {}).map(([key, value]) => {
-      const text = Array.isArray(value) ? value.join(", ") : value;
-      if (key === "non_field_errors" || key === "detail") return text;
-      return `${key}: ${text}`;
-    }).join(" ");
-  }
-
-  async function updateCartBadge() {
-    try {
-      const cart = await api("/api/cart/");
-      $$("[data-cart-count], [data-cart-count-mobile]").forEach((count) => {
-        count.textContent = cart.count || 0;
-      });
-      renderCart(cart);
-    } catch {
-      return null;
-    }
-  }
-
-  async function updateWishlistBadge() {
-    const counts = $$("[data-wishlist-count], [data-wishlist-count-mobile]");
-    if (!counts.length) return null;
-    if (!state.access) {
-      counts.forEach((count) => { count.textContent = 0; });
-      return 0;
-    }
-    try {
-      const wishlist = await api("/api/wishlist/");
-      counts.forEach((count) => { count.textContent = wishlist.length || 0; });
-      return wishlist.length || 0;
-    } catch {
-      clearTokens();
-      counts.forEach((count) => { count.textContent = 0; });
-      return null;
-    }
-  }
-
-  async function updateDeliveryStrip() {
-    const strip = $("[data-delivery-strip]");
-    const name = $("[data-delivery-name]");
-    const location = $("[data-delivery-location]");
-    if (!strip || !name || !location) return null;
-    const user = await bootstrapSession();
-    if (!user) {
-      state.user = null;
-      state.addresses = [];
-      state.selectedAddressId = null;
-      name.textContent = "User";
-      location.textContent = "";
-      location.hidden = true;
-      strip.hidden = true;
-      renderSavedAddresses();
-      return null;
-    }
-    try {
-      const [, addresses] = await Promise.all([
-        Promise.resolve(user),
-        api("/api/auth/addresses/"),
-      ]);
-      state.addresses = addresses;
-      const preferredAddress = addresses.find((item) => item.is_default) || addresses[0];
-      state.selectedAddressId = preferredAddress?.id || null;
-      name.textContent = user.username || user.first_name || "User";
-      const locationText = preferredAddress ? addressLocationText(preferredAddress) : "";
-      location.textContent = locationText;
-      location.hidden = !locationText;
-      renderSavedAddresses();
-      strip.hidden = false;
-      return { user, addresses };
-    } catch {
-      clearTokens();
-      state.addresses = [];
-      state.selectedAddressId = null;
-      location.textContent = "";
-      location.hidden = true;
-      strip.hidden = true;
-      renderSavedAddresses();
-      return null;
-    }
   }
 
   function bindLocationModal() {
@@ -353,25 +541,35 @@ const Storefront = (() => {
     state.handlersBound.location = true;
     const modal = $("[data-location-modal]");
     const pincodeInput = $("[data-location-pincode]");
+
+    const closeLocationModal = () => closeModal(modal);
     const openLocationModal = async (trigger) => {
-      if (!state.access) {
-        openModal($("[data-auth-modal]"), trigger);
+      const user = await ensureUserProfile();
+      if (!user) {
+        openAuthModal(trigger, {
+          returnUrl: currentUrl(),
+          onSuccess: async () => {
+            await updateDeliveryStrip();
+            openModal(modal, trigger);
+          },
+        });
         return;
       }
       await updateDeliveryStrip();
       openModal(modal, trigger);
     };
-    const closeLocationModal = () => closeModal(modal);
 
     $$("[data-location-open]").forEach((btn) => btn.addEventListener("click", () => openLocationModal(btn)));
     $$("[data-location-close]").forEach((btn) => btn.addEventListener("click", closeLocationModal));
     modal?.addEventListener("click", (event) => {
       if (event.target === modal) closeLocationModal();
     });
+
     $("[data-location-search]")?.addEventListener("click", () => {
       pincodeInput?.focus();
       toast("Search by pincode or area");
     });
+
     $("[data-location-current]")?.addEventListener("click", () => {
       if (!navigator.geolocation) {
         toast("Location access is not supported on this device");
@@ -383,6 +581,7 @@ const Storefront = (() => {
         { enableHighAccuracy: true, timeout: 8000 },
       );
     });
+
     pincodeInput?.addEventListener("keydown", (event) => {
       if (event.key !== "Enter") return;
       event.preventDefault();
@@ -390,6 +589,7 @@ const Storefront = (() => {
       if (!value) return;
       toast(`Checking delivery for ${value}`);
     });
+
     document.addEventListener("change", (event) => {
       const addressInput = event.target.closest('input[name="saved_address"]');
       if (!addressInput) return;
@@ -401,6 +601,7 @@ const Storefront = (() => {
         location.textContent = addressLocationText(address);
         location.hidden = false;
       }
+      fillCheckoutForm(state.user, address);
       renderSavedAddresses();
       closeLocationModal();
       toast(`Delivery location set to ${address.label}`);
@@ -466,36 +667,43 @@ const Storefront = (() => {
         const root = add.closest("[data-product-detail]");
         const quantity = root?.querySelector("[data-quantity]")?.value || 1;
         const variant = root?.querySelector("[data-variant-select]")?.value || "";
-        await api("/api/cart/add/", {
-          method: "POST",
-          body: JSON.stringify({ product_id: add.dataset.addCart, quantity, variant_id: variant }),
+        await withLockedButton(add, async () => {
+          await api("/api/cart/add/", {
+            method: "POST",
+            body: JSON.stringify({ product_id: add.dataset.addCart, quantity, variant_id: variant }),
+          });
+          toast("Added to bag");
+          await updateCartBadge();
         });
-        toast("Added to bag");
-        updateCartBadge();
       }
+
       const wish = event.target.closest("[data-wishlist]");
       if (wish) {
         event.preventDefault();
-        try {
-          const data = await api("/api/wishlist/toggle/", { method: "POST", body: JSON.stringify({ product_id: wish.dataset.wishlist }) });
-          $$("[data-wishlist-count], [data-wishlist-count-mobile]").forEach((count) => {
-            count.textContent = data.count || 0;
-          });
-          toast(data.wishlisted ? "Saved to wishlist" : "Removed from wishlist");
-        } catch {
-          openModal($("[data-auth-modal]"), wish);
-        }
+        await withLockedButton(wish, async () => {
+          try {
+            const data = await api("/api/wishlist/toggle/", { method: "POST", body: JSON.stringify({ product_id: wish.dataset.wishlist }) });
+            setCountBadge($$("[data-wishlist-count], [data-wishlist-count-mobile]"), data.count || 0);
+            toast(data.wishlisted ? "Saved to wishlist" : "Removed from wishlist");
+          } catch {
+            openAuthModal(wish, { returnUrl: currentUrl() });
+          }
+        });
       }
+
       const quick = event.target.closest("[data-quick-view]");
       if (quick) {
         event.preventDefault();
         navigate(`/product/${quick.dataset.quickView}/`);
       }
+
       const buy = event.target.closest("[data-buy-now]");
       if (buy) {
         event.preventDefault();
-        await api("/api/cart/add/", { method: "POST", body: JSON.stringify({ product_id: buy.dataset.buyNow, quantity: 1 }) });
-        navigate("/checkout/");
+        await withLockedButton(buy, async () => {
+          await api("/api/cart/add/", { method: "POST", body: JSON.stringify({ product_id: buy.dataset.buyNow, quantity: 1 }) });
+          await navigate("/checkout/");
+        });
       }
     });
   }
@@ -505,12 +713,17 @@ const Storefront = (() => {
     if (!form) return;
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
-      const params = new URLSearchParams(new FormData(form));
-      for (const [key, value] of [...params.entries()]) if (!value) params.delete(key);
-      const data = await api(`/api/products/?${params.toString()}`);
-      const products = data.results || data;
-      $("[data-product-grid]").innerHTML = products.map(productCardHtml).join("") || `<p>No products found.</p>`;
-      $("[data-result-count]").textContent = `${products.length} products`;
+      const submitter = event.submitter || form.querySelector('[type="submit"]');
+      await withLockedButton(submitter, async () => {
+        const params = new URLSearchParams(new FormData(form));
+        for (const [key, value] of [...params.entries()]) {
+          if (!value) params.delete(key);
+        }
+        const data = await api(`/api/products/?${params.toString()}`);
+        const products = data.results || data;
+        $("[data-product-grid]").innerHTML = products.map(productCardHtml).join("") || `<p>No products found.</p>`;
+        $("[data-result-count]").textContent = `${products.length} products`;
+      });
     });
   }
 
@@ -536,64 +749,86 @@ const Storefront = (() => {
   }
 
   function bindCart() {
-    updateCartBadge();
-    updateWishlistBadge();
-    updateDeliveryStrip();
+    updateCartBadge({ silent: true });
+    updateWishlistBadge({ silent: true });
+    updateDeliveryStrip({ silent: true });
     if (state.handlersBound.cart) return;
     state.handlersBound.cart = true;
+
     document.addEventListener("click", async (event) => {
       const inc = event.target.closest("[data-cart-inc]");
       const dec = event.target.closest("[data-cart-dec]");
       const remove = event.target.closest("[data-cart-remove]");
       if (!inc && !dec && !remove) return;
       event.preventDefault();
-      const cart = await api("/api/cart/");
-      const id = (inc || dec || remove).dataset.cartInc || (inc || dec || remove).dataset.cartDec || (inc || dec || remove).dataset.cartRemove;
-      if (remove) await api(`/api/cart/items/${id}/`, { method: "DELETE" });
-      else {
-        const item = cart.items.find((row) => String(row.id) === String(id));
-        const quantity = Math.max(1, item.quantity + (inc ? 1 : -1));
-        await api(`/api/cart/items/${id}/`, { method: "PATCH", body: JSON.stringify({ quantity }) });
-      }
-      updateCartBadge();
+      const trigger = inc || dec || remove;
+      await withLockedButton(trigger, async () => {
+        const cart = await api("/api/cart/");
+        const id = trigger.dataset.cartInc || trigger.dataset.cartDec || trigger.dataset.cartRemove;
+        if (remove) {
+          await api(`/api/cart/items/${id}/`, { method: "DELETE" });
+        } else {
+          const item = cart.items.find((row) => String(row.id) === String(id));
+          const quantity = Math.max(1, item.quantity + (inc ? 1 : -1));
+          await api(`/api/cart/items/${id}/`, { method: "PATCH", body: JSON.stringify({ quantity }) });
+        }
+        await updateCartBadge();
+      });
     });
+
     const coupon = $("[data-coupon-form]");
     if (coupon) {
       coupon.addEventListener("submit", async (event) => {
         event.preventDefault();
-        try {
-          const data = await api("/api/cart/coupon/", { method: "POST", body: JSON.stringify(Object.fromEntries(new FormData(coupon).entries())) });
-          renderCart(data);
-          toast("Coupon applied");
-        } catch (error) {
-          toast(flattenError(error));
-        }
+        const submitter = event.submitter || coupon.querySelector('[type="submit"]');
+        await withLockedButton(submitter, async () => {
+          try {
+            const data = await api("/api/cart/coupon/", { method: "POST", body: JSON.stringify(Object.fromEntries(new FormData(coupon).entries())) });
+            renderCart(data);
+            toast("Coupon applied");
+          } catch (error) {
+            toast(flattenError(error));
+          }
+        });
       });
     }
-    $("[data-remove-coupon]")?.addEventListener("click", async () => {
-      const data = await api("/api/cart/coupon/", { method: "DELETE" });
-      renderCart(data);
-      toast("Coupon removed");
+
+    $("[data-remove-coupon]")?.addEventListener("click", async (event) => {
+      const button = event.currentTarget;
+      await withLockedButton(button, async () => {
+        const data = await api("/api/cart/coupon/", { method: "DELETE" });
+        renderCart(data);
+        toast("Coupon removed");
+      });
     });
   }
 
   function bindCheckout() {
     const form = $("[data-checkout-form]");
     if (!form) return;
+    fillCheckoutForm(state.user, selectedAddress());
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
-      if (!state.access) {
-        openModal($("[data-auth-modal]"), form.querySelector('[type="submit"]'));
+      const submitter = event.submitter || form.querySelector('[type="submit"]');
+      const user = await ensureUserProfile();
+      if (!user) {
+        openAuthModal(submitter, {
+          returnUrl: currentUrl(),
+          onSuccess: async () => form.requestSubmit(),
+        });
         toast("Login to place your order");
         return;
       }
-      try {
-        const data = await api("/api/orders/", { method: "POST", body: JSON.stringify(Object.fromEntries(new FormData(form).entries())) });
-        toast(`Order #${data.id} placed`);
-        navigate("/dashboard/");
-      } catch (error) {
-        toast(flattenError(error));
-      }
+      await withLockedButton(submitter, async () => {
+        try {
+          const data = await api("/api/orders/", { method: "POST", body: JSON.stringify(Object.fromEntries(new FormData(form).entries())) });
+          toast(`Order #${data.id} placed`);
+          await updateCartBadge();
+          await navigate("/dashboard/");
+        } catch (error) {
+          toast(flattenError(error));
+        }
+      });
     });
   }
 
@@ -608,20 +843,23 @@ const Storefront = (() => {
     let rotatingIndex = 0;
     let rotatingTimer = null;
     if (!input || !root || !box || !placeholder) return;
+
     const runSearch = async (query) => {
       if (query.length < 2) {
         root.classList.remove("open");
         root.innerHTML = "";
         return;
       }
-      const data = await api(`/api/products/suggestions/?q=${encodeURIComponent(query)}`);
+      const data = await api(`/api/products/suggestions/?q=${encodeURIComponent(query)}`, { silent: true });
       renderSearchSuggestions(data.length ? data : defaultSearchSuggestions, query);
     };
+
     const setPlaceholder = (text, entering = false) => {
       placeholder.textContent = text;
       placeholder.classList.remove("exit");
       if (entering) placeholder.classList.add("visible");
     };
+
     const rotatePlaceholder = () => {
       if (document.activeElement === input || input.value.trim()) return;
       placeholder.classList.add("exit");
@@ -630,8 +868,10 @@ const Storefront = (() => {
         setPlaceholder(rotatingSearchTerms[rotatingIndex], true);
       }, 220);
     };
+
     setPlaceholder(rotatingSearchTerms[rotatingIndex], true);
     rotatingTimer = window.setInterval(rotatePlaceholder, 3000);
+
     input.addEventListener("focus", () => {
       placeholder.classList.remove("visible", "exit");
       root.classList.remove("open");
@@ -641,26 +881,26 @@ const Storefront = (() => {
         if (!input.value.trim()) setPlaceholder(rotatingSearchTerms[rotatingIndex], true);
       }, 120);
     });
-    input?.addEventListener("input", () => {
+    input.addEventListener("input", () => {
       if (input.value.trim()) placeholder.classList.remove("visible", "exit");
-      clearTimeout(timer);
-      timer = setTimeout(async () => {
-        const query = input.value.trim();
-        await runSearch(query);
+      window.clearTimeout(timer);
+      timer = window.setTimeout(async () => {
+        await runSearch(input.value.trim());
       }, 220);
     });
     input.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") {
-        event.preventDefault();
-        const query = input.value.trim();
-        if (!query) return;
-        navigate(`/shop/?q=${encodeURIComponent(query)}`);
-        root.classList.remove("open");
-      }
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      const query = input.value.trim();
+      if (!query) return;
+      navigate(`/shop/?q=${encodeURIComponent(query)}`);
+      root.classList.remove("open");
     });
+
     document.addEventListener("click", (event) => {
       if (!event.target.closest("[data-search-box]")) root.classList.remove("open");
     });
+
     mic?.addEventListener("click", () => {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SpeechRecognition) {
@@ -683,6 +923,7 @@ const Storefront = (() => {
       recognition.onerror = () => toast("Voice search could not start");
       recognition.start();
     });
+
     camera?.addEventListener("change", () => {
       const file = camera.files?.[0];
       if (!file) return;
@@ -699,14 +940,17 @@ const Storefront = (() => {
     if (!form) return;
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
-      await api("/api/newsletter/", { method: "POST", body: JSON.stringify(Object.fromEntries(new FormData(form).entries())) });
-      form.reset();
-      toast("Subscribed");
+      const submitter = event.submitter || form.querySelector('[type="submit"]');
+      await withLockedButton(submitter, async () => {
+        await api("/api/newsletter/", { method: "POST", body: JSON.stringify(Object.fromEntries(new FormData(form).entries())) });
+        form.reset();
+        toast("Subscribed");
+      });
     });
   }
 
   function reviewHtml(review) {
-    const stars = "★".repeat(review.rating) + "☆".repeat(5 - review.rating);
+    const stars = Array.from({ length: 5 }, (_, index) => `<i class="fa-${index < review.rating ? "solid" : "regular"} fa-star"></i>`).join("");
     const images = (review.images || []).map((image) => `<img src="${image.url}" alt="${image.alt_text || review.title}">`).join("");
     return `
       <article class="review-card">
@@ -717,28 +961,96 @@ const Storefront = (() => {
       </article>`;
   }
 
+  function dashboardHtml(user, orders = []) {
+    const name = fullName(user);
+    const firstName = user?.first_name || user?.username || "Customer";
+    const orderRows = orders.length
+      ? orders.map((order) => `
+        <div class="order-line"><span>#${order.id} ${order.status}</span><strong>Rs. ${order.total}</strong></div>
+      `).join("")
+      : `<p>No orders yet.</p>`;
+    return `
+      <section class="account-page">
+        <article class="account-page-hero">
+          <div class="account-page-hero-top">
+            <div class="account-avatar"><i class="fa-regular fa-user"></i></div>
+            <div class="account-hero-copy">
+              <p class="eyebrow">My Account</p>
+              <h1>${name}</h1>
+              <p>Manage your profile, orders, wishlist and rewards.</p>
+            </div>
+          </div>
+          <div class="account-page-hero-meta">
+            <span class="account-page-badge"><i class="fa-solid fa-bag-shopping"></i> Orders</span>
+            <span class="account-page-badge"><i class="fa-regular fa-heart"></i> Wishlist</span>
+            <span class="account-page-badge"><i class="fa-regular fa-gem"></i> Rewards</span>
+          </div>
+        </article>
+        <button class="btn btn-dark" type="button">
+          <i class="fa-regular fa-gem"></i>
+          <span>Know more</span>
+        </button>
+        <article class="account-page-band">
+          <span>Shopping for ${firstName}</span>
+        </article>
+        <section class="account-grid">
+          <a class="account-shortcut" href="/dashboard/" data-spa>
+            <i class="fa-solid fa-box"></i>
+            <span>Orders</span>
+          </a>
+          <a class="account-shortcut" href="/contact/" data-spa>
+            <i class="fa-regular fa-circle-question"></i>
+            <span>Help Center</span>
+          </a>
+          <a class="account-shortcut" href="/offers/" data-spa>
+            <i class="fa-solid fa-ticket"></i>
+            <span>Coupons</span>
+          </a>
+          <button class="account-shortcut" type="button">
+            <i class="fa-regular fa-star"></i>
+            <span>Insider</span>
+          </button>
+          <button class="account-shortcut" type="button">
+            <i class="fa-solid fa-gear"></i>
+            <span>Settings</span>
+          </button>
+        </section>
+        <section class="dashboard-grid">
+          <article class="dashboard-card">
+            <h3>Order history</h3>
+            ${orderRows}
+          </article>
+          <article class="dashboard-card"><h3>Saved addresses</h3><p>Use the address API to manage delivery destinations.</p></article>
+        </section>
+      </section>`;
+  }
+
   function bindReviews() {
     const form = $("[data-review-form]");
     if (!form) return;
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
-      if (!state.access) {
-        openModal($("[data-auth-modal]"), form.querySelector('[type="submit"]'));
+      const submitter = event.submitter || form.querySelector('[type="submit"]');
+      const user = await ensureUserProfile();
+      if (!user) {
+        openAuthModal(submitter, { returnUrl: currentUrl() });
         toast("Login as a customer to review this product");
         return;
       }
       const payload = new FormData(form);
       payload.set("product", form.dataset.productId);
-      try {
-        const review = await api("/api/reviews/", { method: "POST", body: payload });
-        const list = $("[data-review-list]");
-        if (list) list.insertAdjacentHTML("afterbegin", reviewHtml(review));
-        form.reset();
-        $("[data-review-message]").textContent = "Review submitted.";
-        toast("Review submitted");
-      } catch (error) {
-        $("[data-review-message]").textContent = flattenError(error);
-      }
+      await withLockedButton(submitter, async () => {
+        try {
+          const review = await api("/api/reviews/", { method: "POST", body: payload });
+          const list = $("[data-review-list]");
+          if (list) list.insertAdjacentHTML("afterbegin", reviewHtml(review));
+          form.reset();
+          $("[data-review-message]").textContent = "Review submitted.";
+          toast("Review submitted");
+        } catch (error) {
+          $("[data-review-message]").textContent = flattenError(error);
+        }
+      });
     });
   }
 
@@ -772,18 +1084,127 @@ const Storefront = (() => {
     if (viewer && image) {
       viewer.addEventListener("mousemove", (event) => {
         const rect = viewer.getBoundingClientRect();
-        const x = ((event.clientX - rect.left) / rect.width - .5) * 18;
-        const y = ((event.clientY - rect.top) / rect.height - .5) * -18;
+        const x = ((event.clientX - rect.left) / rect.width - 0.5) * 18;
+        const y = ((event.clientY - rect.top) / rect.height - 0.5) * -18;
         image.style.transform = `scale(1.08) rotateY(${x}deg) rotateX(${y}deg)`;
       });
-      viewer.addEventListener("mouseleave", () => { image.style.transform = ""; });
+      viewer.addEventListener("mouseleave", () => {
+        image.style.transform = "";
+      });
     }
+  }
+
+  async function bindDashboard() {
+    const root = $("[data-dashboard-root]");
+    if (!root || window.location.pathname !== "/dashboard/") return;
+    const user = await ensureUserProfile();
+    if (!user) return;
+    try {
+      const orders = await api("/api/orders/", { silent: true });
+      root.innerHTML = dashboardHtml(user, orders.results || orders || []);
+    } catch {
+      root.innerHTML = dashboardHtml(user, []);
+    }
+  }
+
+  function bindHomeHero() {
+    window.clearInterval(state.heroTimer);
+    state.heroTimer = null;
+    const root = $("[data-home-carousel]");
+    if (!root) return;
+    const slides = $$("[data-home-slide]", root);
+    const dots = $$("[data-home-dot]", root);
+    const prev = $("[data-home-prev]", root);
+    const next = $("[data-home-next]", root);
+    if (!slides.length) return;
+    let index = Math.max(slides.findIndex((slide) => slide.classList.contains("is-active")), 0);
+
+    const activate = (nextIndex) => {
+      index = (nextIndex + slides.length) % slides.length;
+      slides.forEach((slide, slideIndex) => {
+        slide.classList.toggle("is-active", slideIndex === index);
+      });
+      dots.forEach((dot, dotIndex) => dot.classList.toggle("is-active", dotIndex === index));
+    };
+
+    dots.forEach((dot, dotIndex) => {
+      dot.addEventListener("click", () => activate(dotIndex));
+    });
+    prev?.addEventListener("click", () => activate(index - 1));
+    next?.addEventListener("click", () => activate(index + 1));
+
+    activate(index);
+    if (slides.length > 1) {
+      state.heroTimer = window.setInterval(() => activate(index + 1), 4500);
+    }
+    root.addEventListener("mouseenter", () => {
+      window.clearInterval(state.heroTimer);
+      state.heroTimer = null;
+    });
+    root.addEventListener("mouseleave", () => {
+      if (slides.length > 1 && !state.heroTimer) {
+        state.heroTimer = window.setInterval(() => activate(index + 1), 4500);
+      }
+    });
+  }
+
+  function bindCategoryMarquee() {
+    if (state.categoryMarqueeRaf) {
+      window.cancelAnimationFrame(state.categoryMarqueeRaf);
+      state.categoryMarqueeRaf = null;
+    }
+    const shell = $("[data-home-carousel]") ? $(".home-category-marquee-shell") : null;
+    const track = shell ? $(".home-category-marquee-track", shell) : null;
+    if (!shell || !track) return;
+    const items = $$(".home-category-item", track);
+    if (items.length < 2) return;
+    const loopWidth = track.scrollWidth / 2;
+    let paused = false;
+    let lastTick = 0;
+    const speed = window.innerWidth <= 760 ? 0.45 : 0.6;
+
+    const setPaused = (value) => {
+      paused = value;
+      shell.classList.toggle("is-paused", value);
+    };
+
+    if (shell.scrollLeft >= loopWidth || shell.scrollLeft === 0) {
+      shell.scrollLeft = 0;
+    }
+
+    const step = (time) => {
+      if (!lastTick) lastTick = time;
+      const delta = time - lastTick;
+      lastTick = time;
+      if (!paused) {
+        shell.scrollLeft += (delta * speed) / 16;
+        if (shell.scrollLeft >= loopWidth) {
+          shell.scrollLeft -= loopWidth;
+        }
+      }
+      state.categoryMarqueeRaf = window.requestAnimationFrame(step);
+    };
+
+    if (!shell.dataset.marqueeBound) {
+      shell.dataset.marqueeBound = "true";
+      shell.addEventListener("mouseenter", () => setPaused(true));
+      shell.addEventListener("mouseleave", () => setPaused(false));
+      shell.addEventListener("touchstart", () => setPaused(true), { passive: true });
+      shell.addEventListener("touchend", () => setPaused(false), { passive: true });
+      shell.addEventListener("touchcancel", () => setPaused(false), { passive: true });
+      shell.addEventListener("pointerdown", () => setPaused(true));
+      shell.addEventListener("pointerup", () => setPaused(false));
+    }
+
+    state.categoryMarqueeRaf = window.requestAnimationFrame(step);
   }
 
   function reveal() {
     const observer = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => entry.isIntersecting && entry.target.classList.add("visible"));
-    }, { threshold: .12 });
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) entry.target.classList.add("visible");
+      });
+    }, { threshold: 0.12 });
     $$(".reveal").forEach((el) => observer.observe(el));
   }
 
@@ -795,22 +1216,27 @@ const Storefront = (() => {
     bindReviews();
     bindGallery();
     bindLocationModal();
+    bindHomeHero();
+    bindCategoryMarquee();
+    bindDashboard();
     reveal();
   }
 
   function init() {
     document.documentElement.classList.add("reveal-ready");
+    toggleGlobalLoader(false);
     bindNavigation();
     bindAuth();
     bindAccountTrigger();
     bindProducts();
     bindSearch();
     bootstrapSession().then(() => {
-      updateDeliveryStrip();
-      updateWishlistBadge();
-      updateCartBadge();
+      updateDeliveryStrip({ silent: true });
+      updateWishlistBadge({ silent: true });
+      updateCartBadge({ silent: true });
     });
     bindPage();
+    state.bootstrapped = true;
   }
 
   return { init };

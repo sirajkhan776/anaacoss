@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f8efe3"/>
+      <stop offset="50%" stop-color="#ead6b6"/>
+      <stop offset="100%" stop-color="#c29c63"/>
+    </linearGradient>
+    <linearGradient id="bottle" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fffaf2" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#f7e1b8" stop-opacity="0.65"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <circle cx="1260" cy="220" r="170" fill="#fff9ee" opacity="0.3"/>
+  <rect x="910" y="170" width="330" height="510" rx="52" fill="#ffffff" opacity="0.28"/>
+  <rect x="995" y="245" width="150" height="290" rx="50" fill="url(#bottle)" stroke="#8d673d" stroke-width="8"/>
+  <rect x="1032" y="180" width="76" height="92" rx="16" fill="#2b2320"/>
+  <rect x="1054" y="148" width="32" height="46" rx="10" fill="#d8b178"/>
+  <circle cx="1070" cy="390" r="44" fill="#d6a25d" opacity="0.75"/>
+  <text x="150" y="220" fill="#8e6a3d" font-family="Arial, sans-serif" font-size="34" font-weight="700" letter-spacing="8">SIGNATURE NOTES</text>
+  <text x="150" y="340" fill="#171313" font-family="Georgia, serif" font-size="110" font-weight="700">Golden Hour</text>
+  <text x="150" y="440" fill="#171313" font-family="Georgia, serif" font-size="110" font-weight="700">Fragrance Edit</text>
+  <text x="150" y="530" fill="#4f4340" font-family="Arial, sans-serif" font-size="34">Warm florals, creamy woods, and fresh citrus layered into long-wear daily signatures.</text>
+</svg>

@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#eef7ef"/>
+      <stop offset="55%" stop-color="#d3ebd8"/>
+      <stop offset="100%" stop-color="#8dc5a0"/>
+    </linearGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#f4fff5" stop-opacity="0.55"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <circle cx="1240" cy="210" r="170" fill="#ffffff" opacity="0.25"/>
+  <circle cx="1320" cy="660" r="210" fill="#bfe3c8" opacity="0.25"/>
+  <rect x="910" y="140" width="320" height="560" rx="42" fill="url(#glass)"/>
+  <rect x="980" y="220" width="120" height="280" rx="36" fill="#f8fff9" stroke="#9dcaa8" stroke-width="8"/>
+  <rect x="1010" y="180" width="58" height="92" rx="20" fill="#95c8a3"/>
+  <rect x="1080" y="500" width="90" height="120" rx="32" fill="#f8fff9" stroke="#9dcaa8" stroke-width="8"/>
+  <path d="M1124 520 C1080 570 1095 600 1124 618 C1155 602 1165 570 1124 520 Z" fill="#7db28c"/>
+  <text x="150" y="220" fill="#4f7d58" font-family="Arial, sans-serif" font-size="34" font-weight="700" letter-spacing="8">SKIN FIRST</text>
+  <text x="150" y="340" fill="#171313" font-family="Georgia, serif" font-size="110" font-weight="700">Barrier Repair</text>
+  <text x="150" y="440" fill="#171313" font-family="Georgia, serif" font-size="110" font-weight="700">Daily Glow</text>
+  <text x="150" y="530" fill="#445348" font-family="Arial, sans-serif" font-size="34">Hydrating cleansers, serums, and creams shaped for calm texture and luminous skin.</text>
+</svg>

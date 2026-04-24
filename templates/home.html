@@ -1,22 +1,73 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Anaacoss - Premium Cosmetics{% endblock %}
 {% block meta_description %}Shop premium skincare, makeup, fragrance, and beauty tools at Anaacoss. Discover trending cosmetics, best sellers, new arrivals, and curated luxury rituals.{% endblock %}
 {% block content %}
-<section class="hero">
-  <div class="hero-bg" style="background-image:url('https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=1800&q=85')"></div>
-  <div class="hero-content reveal">
-    <p class="eyebrow">New luminous ritual collection</p>
-    <h1>Anaacoss</h1>
-    <p>Premium skincare, makeup, fragrance, and tools curated for polished everyday radiance.</p>
-    <div class="hero-actions">
-      <a class="btn btn-dark" href="/shop/" data-spa>Shop the edit</a>
-      <a class="btn btn-ghost" href="/offers/" data-spa>Explore offers</a>
+<section class="home-category-marquee reveal" aria-label="Top categories">
+  <div class="home-category-marquee-shell">
+    <div class="home-category-marquee-track">
+      <a class="home-category-item" href="{% url 'category' 'makeup' %}" data-spa>
+        <span class="home-category-thumb"><img src="{% static 'images/home/category-makeup.svg' %}" alt="Makeup"></span>
+        <span class="home-category-name">Makeup</span>
+      </a>
+      <a class="home-category-item" href="{% url 'category' 'skincare' %}" data-spa>
+        <span class="home-category-thumb"><img src="{% static 'images/home/category-skincare.svg' %}" alt="Skincare"></span>
+        <span class="home-category-name">Skincare</span>
+      </a>
+      <a class="home-category-item" href="{% url 'category' 'haircare' %}" data-spa>
+        <span class="home-category-thumb"><img src="{% static 'images/home/category-haircare.svg' %}" alt="Haircare"></span>
+        <span class="home-category-name">Haircare</span>
+      </a>
+      <a class="home-category-item" href="{% url 'category' 'fragrance' %}" data-spa>
+        <span class="home-category-thumb"><img src="{% static 'images/home/category-fragrance.svg' %}" alt="Fragrance"></span>
+        <span class="home-category-name">Fragrance</span>
+      </a>
+      <a class="home-category-item" href="{% url 'category' 'makeup' %}" data-spa aria-hidden="true" tabindex="-1">
+        <span class="home-category-thumb"><img src="{% static 'images/home/category-makeup.svg' %}" alt=""></span>
+        <span class="home-category-name">Makeup</span>
+      </a>
+      <a class="home-category-item" href="{% url 'category' 'skincare' %}" data-spa aria-hidden="true" tabindex="-1">
+        <span class="home-category-thumb"><img src="{% static 'images/home/category-skincare.svg' %}" alt=""></span>
+        <span class="home-category-name">Skincare</span>
+      </a>
+      <a class="home-category-item" href="{% url 'category' 'haircare' %}" data-spa aria-hidden="true" tabindex="-1">
+        <span class="home-category-thumb"><img src="{% static 'images/home/category-haircare.svg' %}" alt=""></span>
+        <span class="home-category-name">Haircare</span>
+      </a>
+      <a class="home-category-item" href="{% url 'category' 'fragrance' %}" data-spa aria-hidden="true" tabindex="-1">
+        <span class="home-category-thumb"><img src="{% static 'images/home/category-fragrance.svg' %}" alt=""></span>
+        <span class="home-category-name">Fragrance</span>
+      </a>
     </div>
   </div>
-  <div class="floating-icons">
-    <span><i class="fa-solid fa-wand-magic-sparkles"></i></span>
-    <span><i class="fa-solid fa-droplet"></i></span>
-    <span><i class="fa-solid fa-seedling"></i></span>
+</section>
+
+<section class="hero hero-carousel reveal" data-home-carousel>
+  <div class="hero-carousel-slides">
+    <article class="hero-slide is-active" data-home-slide>
+      <img src="{% static 'images/home/hero-makeup.svg' %}" alt="Velvet Glow makeup collection" loading="eager">
+    </article>
+    <article class="hero-slide" data-home-slide>
+      <img src="{% static 'images/home/hero-skincare.svg' %}" alt="Barrier Repair skincare collection" loading="lazy">
+    </article>
+    <article class="hero-slide" data-home-slide>
+      <img src="{% static 'images/home/hero-fragrance.svg' %}" alt="Golden Hour fragrance collection" loading="lazy">
+    </article>
+    <article class="hero-slide" data-home-slide>
+      <img src="{% static 'images/home/hero-haircare.svg' %}" alt="Glossy Hair care collection" loading="lazy">
+    </article>
+  </div>
+  <button class="hero-carousel-arrow hero-carousel-prev" type="button" data-home-prev aria-label="Previous slide">
+    <i class="fa-solid fa-chevron-left"></i>
+  </button>
+  <button class="hero-carousel-arrow hero-carousel-next" type="button" data-home-next aria-label="Next slide">
+    <i class="fa-solid fa-chevron-right"></i>
+  </button>
+  <div class="hero-carousel-dots" aria-label="Hero slides">
+    <button type="button" class="is-active" data-home-dot aria-label="Show slide 1"></button>
+    <button type="button" data-home-dot aria-label="Show slide 2"></button>
+    <button type="button" data-home-dot aria-label="Show slide 3"></button>
+    <button type="button" data-home-dot aria-label="Show slide 4"></button>
   </div>
 </section>
 
@@ -25,23 +76,6 @@
   <div><i class="fa-solid fa-shield-heart"></i><span>Dermatology tested</span></div>
   <div><i class="fa-solid fa-truck-fast"></i><span>Luxury delivery</span></div>
   <div><i class="fa-solid fa-lock"></i><span>Secure checkout</span></div>
-</section>
-
-<section class="section reveal">
-  <div class="section-head">
-    <p class="eyebrow">Curated departments</p>
-    <h2>Beauty rituals by category</h2>
-    <a href="/shop/" data-spa>View all</a>
-  </div>
-  <div class="category-grid">
-    {% for category in featured_categories %}
-      <a class="category-tile" href="{% url 'category' category.slug %}" data-spa>
-        <i class="fa-solid fa-{{ category.icon }}"></i>
-        <h3>{{ category.name }}</h3>
-        <p>{{ category.description|truncatechars:90 }}</p>
-      </a>
-    {% endfor %}
-  </div>
 </section>
 
 <section class="section blush-band reveal">

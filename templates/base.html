@@ -47,6 +47,7 @@
     <div class="header-delivery-strip" data-delivery-strip hidden>
       <div class="header-delivery-copy">
         <div class="header-delivery-line">
+          <span class="header-delivery-icon" aria-hidden="true"><i class="fa-solid fa-location-dot"></i></span>
           <span class="header-delivery-label">Deliver to</span>
           <strong data-delivery-name>User</strong>
           <button class="header-delivery-action" type="button" data-location-open aria-label="Select delivery location">
@@ -83,8 +84,8 @@
         </div>
         <div class="nav-actions">
           <button class="icon-btn top-notification" type="button" aria-label="Notifications"><i class="fa-regular fa-bell"></i></button>
-          <a class="icon-btn cart-link" href="/wishlist/" data-spa aria-label="Wishlist"><i class="fa-regular fa-heart"></i><span data-wishlist-count>0</span></a>
-          <a class="icon-btn cart-link top-cart" href="/cart/" data-spa aria-label="Cart"><i class="fa-solid fa-bag-shopping"></i><span data-cart-count>0</span></a>
+          <a class="icon-btn cart-link" href="/wishlist/" data-spa aria-label="Wishlist"><i class="fa-regular fa-heart"></i><span data-wishlist-count hidden>0</span></a>
+          <a class="icon-btn cart-link top-cart" href="/cart/" data-spa aria-label="Cart"><i class="fa-solid fa-bag-shopping"></i><span data-cart-count hidden>0</span></a>
           <button class="icon-btn top-account" type="button" data-account-open aria-label="Account"><i class="fa-regular fa-user"></i></button>
         </div>
       </div>
@@ -106,10 +107,10 @@
     </a>
     <a class="mobile-bottom-link mobile-bottom-link-badge" href="/cart/" data-spa aria-label="Cart">
       <i class="fa-solid fa-bag-shopping"></i>
-      <span data-cart-count-mobile>0</span>
+      <span data-cart-count-mobile hidden>0</span>
       <label>Cart</label>
     </a>
-    <a class="mobile-bottom-link" href="/dashboard/" data-spa aria-label="My Orders">
+    <a class="mobile-bottom-link" href="/dashboard/" data-spa data-auth-required data-auth-return-url="/dashboard/" aria-label="My Orders">
       <i class="fa-solid fa-box"></i>
       <span>Orders</span>
     </a>
@@ -129,7 +130,7 @@
     <div>
       <h4>Care</h4>
       <a href="/contact/" data-spa>Contact</a>
-      <a href="/dashboard/" data-spa>Orders</a>
+      <a href="/dashboard/" data-spa data-auth-required data-auth-return-url="/dashboard/">Orders</a>
       <a href="/about/" data-spa>Our atelier</a>
     </div>
     <div>
@@ -170,7 +171,12 @@
         {% csrf_token %}
         <h3>Welcome back</h3>
         <input class="lux-input" name="username" placeholder="Email or username" required>
-        <input class="lux-input" name="password" type="password" placeholder="Password" required>
+        <label class="password-field">
+          <input class="lux-input" name="password" type="password" placeholder="Password" required>
+          <button class="password-toggle" type="button" data-password-toggle aria-label="Show password" aria-pressed="false">
+            <i class="fa-regular fa-eye"></i>
+          </button>
+        </label>
         <button class="btn btn-dark" type="submit">Login</button>
       </form>
       <form class="auth-form" data-auth-form="register">
@@ -181,13 +187,22 @@
         <input class="lux-input" name="username" placeholder="Username" required>
         <input class="lux-input" name="email" type="email" placeholder="Email" required>
         <input class="lux-input" name="phone" placeholder="Phone">
-        <input class="lux-input" name="password" type="password" placeholder="Password" required>
+        <label class="password-field">
+          <input class="lux-input" name="password" type="password" placeholder="Password" required>
+          <button class="password-toggle" type="button" data-password-toggle aria-label="Show password" aria-pressed="false">
+            <i class="fa-regular fa-eye"></i>
+          </button>
+        </label>
         <button class="btn btn-dark" type="submit">Register</button>
       </form>
       <p class="form-note" data-auth-message></p>
     </div>
   </div>
 
+  <div class="global-loader" data-global-loader aria-live="polite" aria-busy="true">
+    <div class="global-loader-spinner" aria-hidden="true"></div>
+    <span>Loading</span>
+  </div>
   <div class="toast" data-toast></div>
   <script src="{% static 'js/storefront.js' %}"></script>
   {% block extra_js %}{% endblock %}

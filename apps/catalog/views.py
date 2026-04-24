@@ -17,7 +17,15 @@ def base_context():
     }
 
 
+def banner_media_type(banner):
+    remote_url = (banner.remote_url or "").lower().split("?", 1)[0]
+    if remote_url.endswith((".mp4", ".webm", ".ogg", ".mov", ".m4v")):
+        return "video"
+    return "image"
+
+
 def home(request):
+    hero_banners = Banner.objects.filter(is_active=True, placement="hero")[:3]
     ctx = base_context()
     ctx.update(
         {
@@ -25,7 +33,20 @@ def home(request):
             "trending_products": Product.objects.visible().filter(is_trending=True).prefetch_related("images")[:8],
             "best_sellers": Product.objects.visible().filter(is_best_seller=True).prefetch_related("images")[:8],
             "new_arrivals": Product.objects.visible().filter(is_new_arrival=True).prefetch_related("images")[:8],
-            "hero_banners": Banner.objects.filter(is_active=True, placement="hero")[:3],
+            "hero_banners": hero_banners,
+            "mobile_hero_slides": [
+                {
+                    "eyebrow": banner.eyebrow or "New luminous ritual collection",
+                    "title": banner.title or "Anaacoss",
+                    "subtitle": banner.subtitle or "Premium skincare, makeup, fragrance, and tools curated for polished everyday radiance.",
+                    "cta_label": banner.cta_label or "Shop the edit",
+                    "cta_url": banner.cta_url or "/shop/",
+                    "media_type": banner_media_type(banner),
+                    "media_url": banner.remote_url if banner_media_type(banner) == "video" else banner.image_url,
+                }
+                for banner in hero_banners
+                if (banner.remote_url if banner_media_type(banner) == "video" else banner.image_url)
+            ],
             "offer_banners": Banner.objects.filter(is_active=True, placement="offer")[:3],
             "testimonials": Testimonial.objects.filter(is_active=True)[:6],
         }

@@ -1,17 +1,22 @@
 {% extends "base.html" %}
 {% block title %}Dashboard - Anaacoss{% endblock %}
 {% block content %}
-<section class="page-hero compact">
-  <p class="eyebrow">Account</p>
-  <h1>Your profile</h1>
-</section>
+<div data-dashboard-root>
 {% if profile_user %}
 <section class="account-page">
   <article class="account-page-hero">
-    <div class="account-avatar"><i class="fa-regular fa-user"></i></div>
-    <div class="account-hero-copy">
-      <h2>{{ profile_user.get_full_name|default:profile_user.username }}</h2>
-      <p>Become An Insider to avail Extra Rewards and better discount</p>
+    <div class="account-page-hero-top">
+      <div class="account-avatar"><i class="fa-regular fa-user"></i></div>
+      <div class="account-hero-copy">
+        <p class="eyebrow">My Account</p>
+        <h1>{{ profile_user.get_full_name|default:profile_user.username }}</h1>
+        <p>Manage your profile, orders, wishlist and rewards.</p>
+      </div>
+    </div>
+    <div class="account-page-hero-meta">
+      <span class="account-page-badge"><i class="fa-solid fa-bag-shopping"></i> Orders</span>
+      <span class="account-page-badge"><i class="fa-regular fa-heart"></i> Wishlist</span>
+      <span class="account-page-badge"><i class="fa-regular fa-gem"></i> Rewards</span>
     </div>
   </article>
   <button class="btn btn-dark" type="button">
@@ -38,6 +43,10 @@
       <i class="fa-regular fa-star"></i>
       <span>Insider</span>
     </button>
+    <button class="account-shortcut" type="button">
+      <i class="fa-solid fa-gear"></i>
+      <span>Settings</span>
+    </button>
   </section>
   <section class="dashboard-grid">
     <article class="dashboard-card">
@@ -50,18 +59,15 @@
     </article>
     <article class="dashboard-card"><h3>Saved addresses</h3><p>Use the address API to manage delivery destinations.</p></article>
   </section>
-  <button class="account-settings" type="button">
-    <i class="fa-solid fa-gear"></i>
-    <span>Settings</span>
-  </button>
 </section>
 {% else %}
-<section class="dashboard-grid">
+<section class="account-page account-page-guest">
   <article class="dashboard-card">
-    <h3>Profile</h3>
-    <p data-profile-summary>Login to view your profile, orders, addresses, and saved products.</p>
-    <button class="btn btn-dark" type="button" data-auth-open>Login</button>
+    <h3>Orders</h3>
+    <p data-profile-summary>Login to view your orders, saved addresses, and checkout details without losing your place.</p>
+    <button class="btn btn-dark" type="button" data-auth-open data-auth-return-url="/dashboard/">Login</button>
   </article>
 </section>
 {% endif %}
+</div>
 {% endblock %}
