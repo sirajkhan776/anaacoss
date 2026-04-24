@@ -1236,7 +1236,17 @@ html.reveal-ready .reveal.visible { opacity: 1; transform: translateY(0); }
   .location-empty,
   .account-shopping-for span,
   .category-tile p,
-  .suggestion span {
+  .suggestion span,
+  .shop-toolbar,
+  .filters-panel label,
+  .dashboard-card p,
+  .dashboard-card h3,
+  .summary-card p,
+  .summary-card label,
+  .faq-list p,
+  .account-page-band span,
+  .mobile-bottom-link span,
+  .mobile-bottom-link label {
     color: var(--muted);
   }
 
@@ -1343,13 +1353,31 @@ html.reveal-ready .reveal.visible { opacity: 1; transform: translateY(0); }
   }
 
   .mobile-bottom-link,
+  .mobile-bottom-link i,
+  .mobile-bottom-link span,
+  .mobile-bottom-link label,
   .auth-tabs button,
   .location-text-option,
   .suggestion strong,
   .review-head strong,
   .account-shortcut span,
   .header-delivery-location,
-  .header-delivery-copy strong {
+  .header-delivery-copy strong,
+  .site-footer h4,
+  .site-footer p,
+  .section h1,
+  .section h2,
+  .section h3,
+  .section h4,
+  .section strong,
+  .product-title,
+  .price-row,
+  .summary-row,
+  .stock,
+  .coupon-highlight,
+  .auth-form h3,
+  .location-modal-head h3,
+  .location-saved-block h4 {
     color: var(--ink);
   }
 
