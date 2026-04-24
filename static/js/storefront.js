@@ -783,16 +783,21 @@ const Storefront = (() => {
       event.preventDefault();
       const trigger = inc || dec || remove;
       await withLockedButton(trigger, async () => {
-        const cart = await api("/api/cart/");
+        const cart = await api("/api/cart/", { silent: true });
         const id = trigger.dataset.cartInc || trigger.dataset.cartDec || trigger.dataset.cartRemove;
         if (remove) {
-          await api(`/api/cart/items/${id}/`, { method: "DELETE" });
+          await api(`/api/cart/items/${id}/`, { method: "DELETE", silent: true });
         } else {
           const item = cart.items.find((row) => String(row.id) === String(id));
+          if (!item) return;
           const quantity = Math.max(1, item.quantity + (inc ? 1 : -1));
-          await api(`/api/cart/items/${id}/`, { method: "PATCH", body: JSON.stringify({ quantity }) });
+          await api(`/api/cart/items/${id}/`, {
+            method: "PATCH",
+            body: JSON.stringify({ quantity }),
+            silent: true,
+          });
         }
-        await updateCartBadge();
+        await updateCartBadge({ silent: true });
       });
     });
 

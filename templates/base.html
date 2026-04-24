@@ -202,8 +202,17 @@
   </div>
 
   <div class="global-loader" data-global-loader aria-live="polite" aria-busy="true">
-    <div class="global-loader-spinner" aria-hidden="true"></div>
-    <span>Loading</span>
+    <div class="global-loader-card">
+      <div class="global-loader-spinner" aria-hidden="true">
+        <span class="global-loader-ring global-loader-ring-outer"></span>
+        <span class="global-loader-ring global-loader-ring-inner"></span>
+        <span class="global-loader-core"></span>
+      </div>
+      <div class="global-loader-copy">
+        <strong>Loading</strong>
+        <span>Please wait a moment</span>
+      </div>
+    </div>
   </div>
   <div class="toast" data-toast></div>
   <script src="{% static 'js/storefront.js' %}"></script>
