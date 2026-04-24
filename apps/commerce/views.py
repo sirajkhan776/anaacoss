@@ -1,9 +1,9 @@
-from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 
+from apps.accounts.decorators import jwt_required_page
 from apps.accounts.forms import AccountDetailsForm, CosmeticProfileForm, NotificationSettingsForm
 from apps.accounts.models import Profile
 from apps.catalog.models import Product, ProductVariant
@@ -14,21 +14,27 @@ from .serializers import CartSerializer, CouponSerializer, OrderSerializer, Wish
 from .services import get_cart, place_order
 
 
+@jwt_required_page
 def cart_page(request):
     ctx = base_context()
     ctx["cart"] = get_cart(request)
+    ctx["selected_address"] = request.user.addresses.filter(is_default=True).first() or request.user.addresses.first()
     return render(request, "commerce/cart.html", ctx)
 
 
+@jwt_required_page
 def checkout_page(request):
     ctx = base_context()
     ctx["cart"] = get_cart(request)
+    ctx["addresses"] = request.user.addresses.all()
+    ctx["selected_address"] = request.user.addresses.filter(is_default=True).first() or request.user.addresses.first()
     return render(request, "commerce/checkout.html", ctx)
 
 
+@jwt_required_page
 def wishlist_page(request):
     ctx = base_context()
-    ctx["wishlist_items"] = request.user.wishlist_items.select_related("product").prefetch_related("product__images") if request.user.is_authenticated else []
+    ctx["wishlist_items"] = request.user.wishlist_items.select_related("product").prefetch_related("product__images")
     return render(request, "commerce/wishlist.html", ctx)
 
 
@@ -39,37 +45,36 @@ def offers_page(request):
     return render(request, "commerce/offers.html", ctx)
 
 
+@jwt_required_page
 def dashboard_page(request):
     ctx = base_context()
-    profile = None
-    if request.user.is_authenticated:
-        profile, _ = Profile.objects.get_or_create(user=request.user)
-        if request.method == "POST" and request.POST.get("form_name") == "account-details":
-            account_form = AccountDetailsForm(request.POST, request.FILES, instance=request.user)
-            if account_form.is_valid():
-                account_form.save()
-                avatar = account_form.cleaned_data.get("avatar")
-                if avatar:
-                    profile.avatar = avatar
-                    profile.save(update_fields=["avatar"])
-                return redirect("/dashboard/?account_saved=1&account_open=1")
-        if request.method == "POST" and request.POST.get("form_name") == "notification-settings":
-            settings_form = NotificationSettingsForm(request.POST, instance=profile)
-            if settings_form.is_valid():
-                settings_form.save()
-                return redirect("/dashboard/?settings_saved=1")
-    ctx["profile_user"] = request.user if request.user.is_authenticated else None
+    profile, _ = Profile.objects.get_or_create(user=request.user)
+    if request.method == "POST" and request.POST.get("form_name") == "account-details":
+        account_form = AccountDetailsForm(request.POST, request.FILES, instance=request.user)
+        if account_form.is_valid():
+            account_form.save()
+            avatar = account_form.cleaned_data.get("avatar")
+            if avatar:
+                profile.avatar = avatar
+                profile.save(update_fields=["avatar"])
+            return redirect("/dashboard/?account_saved=1&account_open=1")
+    if request.method == "POST" and request.POST.get("form_name") == "notification-settings":
+        settings_form = NotificationSettingsForm(request.POST, instance=profile)
+        if settings_form.is_valid():
+            settings_form.save()
+            return redirect("/dashboard/?settings_saved=1")
+    ctx["profile_user"] = request.user
     ctx["profile"] = profile
-    ctx["orders"] = request.user.orders.prefetch_related("items")[:8] if request.user.is_authenticated else []
-    ctx["addresses"] = request.user.addresses.all() if request.user.is_authenticated else []
-    ctx["account_form"] = AccountDetailsForm(instance=request.user) if request.user.is_authenticated else None
+    ctx["orders"] = request.user.orders.prefetch_related("items")[:8]
+    ctx["addresses"] = request.user.addresses.all()
+    ctx["account_form"] = AccountDetailsForm(instance=request.user)
     ctx["account_saved"] = request.GET.get("account_saved") == "1"
     ctx["account_open"] = request.GET.get("account_open") == "1"
     ctx["settings_saved"] = request.GET.get("settings_saved") == "1"
     return render(request, "account/dashboard.html", ctx)
 
 
-@login_required
+@jwt_required_page
 def cosmetic_profile_page(request):
     ctx = base_context()
     profile, _ = Profile.objects.get_or_create(user=request.user)
@@ -86,12 +91,28 @@ def cosmetic_profile_page(request):
     return render(request, "account/cosmetic_profile.html", ctx)
 
 
+@jwt_required_page
+def address_form_page(request, address_id=None):
+    ctx = base_context()
+    address = request.user.addresses.filter(pk=address_id).first() if address_id else None
+    ctx.update(
+        {
+            "address_record": address,
+            "address_mode": "edit" if address else "create",
+            "address_return_url": request.GET.get("return") or "/checkout/",
+        }
+    )
+    return render(request, "account/address_form.html", ctx)
+
+
 @api_view(["GET"])
+@permission_classes([permissions.IsAuthenticated])
 def cart_api(request):
     return Response(CartSerializer(get_cart(request)).data)
 
 
 @api_view(["POST"])
+@permission_classes([permissions.IsAuthenticated])
 def add_to_cart(request):
     cart = get_cart(request)
     product = Product.objects.get(pk=request.data.get("product_id"))
@@ -107,6 +128,7 @@ def add_to_cart(request):
 
 
 @api_view(["PATCH", "DELETE"])
+@permission_classes([permissions.IsAuthenticated])
 def cart_item_api(request, item_id):
     cart = get_cart(request)
     item = cart.items.get(id=item_id)
@@ -119,6 +141,7 @@ def cart_item_api(request, item_id):
 
 
 @api_view(["POST", "DELETE"])
+@permission_classes([permissions.IsAuthenticated])
 def coupon_api(request):
     cart = get_cart(request)
     if request.method == "DELETE":
@@ -168,11 +191,37 @@ class OrderViewSet(viewsets.ModelViewSet):
         cart = get_cart(request)
         if not cart.items.exists():
             return Response({"cart": ["Your cart is empty."]}, status=status.HTTP_400_BAD_REQUEST)
-        required = ["full_name", "email", "phone", "address_line1", "city", "state", "postal_code"]
-        missing = [field for field in required if not request.data.get(field)]
-        if missing:
-            return Response({field: ["This field is required."] for field in missing}, status=status.HTTP_400_BAD_REQUEST)
-        order = place_order(request.user, cart, request.data)
+        selected_item_ids = request.data.get("selected_item_ids") or []
+        if isinstance(selected_item_ids, str):
+            selected_item_ids = [item.strip() for item in selected_item_ids.split(",") if item.strip()]
+        items_queryset = cart.items.select_related("product", "variant")
+        if selected_item_ids:
+            items_queryset = items_queryset.filter(id__in=selected_item_ids)
+        if not items_queryset.exists():
+            return Response({"selected_item_ids": ["Select at least one cart item."]}, status=status.HTTP_400_BAD_REQUEST)
+        address_id = request.data.get("address_id")
+        if address_id:
+            address = request.user.addresses.filter(pk=address_id).first()
+            if not address:
+                return Response({"address_id": ["Select a valid saved address."]}, status=status.HTTP_400_BAD_REQUEST)
+            payload = {
+                "full_name": address.full_name,
+                "email": request.user.email,
+                "phone": address.phone,
+                "address_line1": address.line1,
+                "address_line2": address.line2,
+                "city": address.city,
+                "state": address.state,
+                "postal_code": address.postal_code,
+                "payment_method": request.data.get("payment_method", "cod"),
+            }
+        else:
+            required = ["full_name", "email", "phone", "address_line1", "city", "state", "postal_code"]
+            missing = [field for field in required if not request.data.get(field)]
+            if missing:
+                return Response({field: ["This field is required."] for field in missing}, status=status.HTTP_400_BAD_REQUEST)
+            payload = request.data
+        order = place_order(request.user, cart, payload, items_queryset=items_queryset)
         return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
 
 

@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}{% if address_record %}Edit Address{% else %}Add Address{% endif %} - Anaacoss{% endblock %}
+{% block content %}
+<section class="page-hero compact">
+  <p class="eyebrow">Address book</p>
+  <h1>{% if address_record %}Edit address{% else %}Add new address{% endif %}</h1>
+</section>
+<section class="checkout-address-page">
+  <form
+    class="checkout-address-editor"
+    data-address-page-form
+    data-address-mode="{{ address_mode }}"
+    {% if address_record %}data-address-id="{{ address_record.id }}"{% endif %}
+    data-address-return="{{ address_return_url }}"
+  >
+    <div class="checkout-address-editor-head">
+      <div>
+        <p class="eyebrow">Saved address</p>
+        <h2>{% if address_record %}Update your details{% else %}Add a delivery address{% endif %}</h2>
+      </div>
+      <a class="btn btn-ghost btn-small" href="{{ address_return_url }}" data-spa>Back to checkout</a>
+    </div>
+
+    <div class="form-grid">
+      <input class="lux-input" name="label" placeholder="Home / Work / Other" value="{% if address_record %}{{ address_record.label }}{% endif %}" required>
+      <input class="lux-input" name="full_name" placeholder="Full name" value="{% if address_record %}{{ address_record.full_name }}{% endif %}" required>
+    </div>
+    <input class="lux-input" name="phone" placeholder="Phone number" value="{% if address_record %}{{ address_record.phone }}{% endif %}" required>
+    <input class="lux-input" name="line1" placeholder="Address line 1" value="{% if address_record %}{{ address_record.line1 }}{% endif %}" required>
+    <input class="lux-input" name="line2" placeholder="Address line 2" value="{% if address_record %}{{ address_record.line2 }}{% endif %}">
+    <div class="form-grid">
+      <input class="lux-input" name="city" placeholder="City" value="{% if address_record %}{{ address_record.city }}{% endif %}" required>
+      <input class="lux-input" name="state" placeholder="State" value="{% if address_record %}{{ address_record.state }}{% endif %}" required>
+    </div>
+    <div class="form-grid">
+      <input class="lux-input" name="postal_code" placeholder="Postal code" value="{% if address_record %}{{ address_record.postal_code }}{% endif %}" required>
+      <input class="lux-input" name="country" placeholder="Country" value="{% if address_record %}{{ address_record.country }}{% else %}India{% endif %}" required>
+    </div>
+    <label class="profile-address-default">
+      <input type="checkbox" name="is_default" {% if address_record and address_record.is_default %}checked{% endif %}>
+      <span>Set as default address</span>
+    </label>
+    <p class="form-note" data-address-page-message></p>
+    <button class="btn btn-dark full" type="submit">{% if address_record %}Update Address{% else %}Save Address{% endif %}</button>
+  </form>
+</section>
+{% endblock %}

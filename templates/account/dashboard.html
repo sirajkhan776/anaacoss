@@ -348,10 +348,9 @@
   </section>
 
   {% if profile_user %}
-    <form class="profile-logout-form" id="profile-logout" method="post" action="{% url 'logout-page' %}">
-      {% csrf_token %}
-      <button class="btn profile-logout-btn full" type="submit">Log Out</button>
-    </form>
+    <div class="profile-logout-form" id="profile-logout">
+      <button class="btn profile-logout-btn full" type="button" data-auth-logout>Log Out</button>
+    </div>
   {% else %}
     <div class="profile-logout-form" id="profile-logout">
       <button class="btn profile-logout-btn full" type="button" data-auth-open data-auth-return-url="/dashboard/">Log Out</button>

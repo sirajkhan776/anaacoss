@@ -2,6 +2,7 @@ from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import Avg
+from decimal import Decimal, ROUND_HALF_UP
 from django.urls import reverse
 from django.utils.text import slugify
 
@@ -129,6 +130,15 @@ class Product(TimeStampedModel):
     @property
     def in_stock(self):
         return self.stock > 0
+
+    @property
+    def discount_percent(self):
+        if not self.discount_price or not self.price:
+            return 0
+        if self.price <= 0 or self.discount_price >= self.price:
+            return 0
+        savings = ((self.price - self.discount_price) / self.price) * Decimal("100")
+        return int(savings.quantize(Decimal("1"), rounding=ROUND_HALF_UP))
 
     def get_absolute_url(self):
         return reverse("storefront-product-detail", kwargs={"slug": self.slug})

@@ -7,6 +7,8 @@ const Storefront = (() => {
     user: null,
     addresses: [],
     selectedAddressId: null,
+    cart: null,
+    cartSelectedIds: new Set(JSON.parse(localStorage.getItem("anaacoss_cart_selected") || "[]")),
     pendingRequests: 0,
     authReturnUrl: "",
     pendingAuthAction: null,
@@ -66,11 +68,6 @@ const Storefront = (() => {
   ];
   let authMessageTimer = null;
   let sharePayload = null;
-
-  function csrf() {
-    const token = document.cookie.split("; ").find((row) => row.startsWith("csrftoken="));
-    return token ? decodeURIComponent(token.split("=")[1]) : "";
-  }
 
   function currentUrl() {
     return `${window.location.pathname}${window.location.search}${window.location.hash}`;
@@ -236,20 +233,14 @@ const Storefront = (() => {
   function fillCheckoutForm(user, address) {
     const form = $("[data-checkout-form]");
     if (!form) return;
-    const values = {
-      full_name: address?.full_name || fullName(user),
-      email: user?.email || "",
-      phone: address?.phone || user?.phone || "",
-      address_line1: address?.line1 || "",
-      address_line2: address?.line2 || "",
-      city: address?.city || "",
-      state: address?.state || "",
-      postal_code: address?.postal_code || "",
-    };
-    Object.entries(values).forEach(([name, value]) => {
-      const field = form.elements.namedItem(name);
-      if (field && !field.value && value) field.value = value;
-    });
+    const addressField = $("[data-checkout-address-input]", form);
+    const note = $("[data-checkout-address-note]");
+    if (addressField) addressField.value = address?.id || "";
+    if (note) {
+      note.textContent = address
+        ? `Delivering to ${address.full_name} at ${address.label}.`
+        : "Select or add an address before placing your order.";
+    }
   }
 
   async function api(url, options = {}) {
@@ -259,26 +250,16 @@ const Storefront = (() => {
       const controller = new AbortController();
       const timeout = window.setTimeout(() => controller.abort(), 15000);
       const headers = {
-        "X-CSRFToken": csrf(),
         "X-Requested-With": "XMLHttpRequest",
         ...(fetchOptions.headers || {}),
       };
       if (!isFormData) headers["Content-Type"] = "application/json";
       if (state.access) headers.Authorization = `Bearer ${state.access}`;
       try {
-        const response = await fetch(url, { ...fetchOptions, headers, signal: controller.signal });
-        if (response.status === 401 && state.refresh) {
-          const refreshed = await fetch("/api/auth/token/refresh/", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "X-CSRFToken": csrf() },
-            body: JSON.stringify({ refresh: state.refresh }),
-            signal: controller.signal,
-          });
-          if (refreshed.ok) {
-            const data = await refreshed.json();
-            setTokens(data.access, data.refresh || state.refresh);
-            return api(url, options);
-          }
+        const response = await fetch(url, { ...fetchOptions, headers, signal: controller.signal, credentials: "same-origin" });
+        if (response.status === 401 && state.refresh && !url.includes("/api/auth/token/refresh/")) {
+          const refreshed = await refreshTokens(controller.signal);
+          if (refreshed) return api(url, options);
           clearTokens();
         }
         const data = await response.json().catch(() => ({}));
@@ -301,7 +282,7 @@ const Storefront = (() => {
     state.isAuthenticated = true;
     document.body?.setAttribute("data-user-authenticated", "true");
     localStorage.setItem("anaacoss_access", access);
-    localStorage.setItem("anaacoss_refresh", refresh);
+    if (refresh) localStorage.setItem("anaacoss_refresh", refresh);
   }
 
   function clearTokens() {
@@ -317,6 +298,26 @@ const Storefront = (() => {
     localStorage.removeItem("anaacoss_refresh");
   }
 
+  async function refreshTokens(signal = undefined) {
+    const response = await fetch("/api/auth/token/refresh/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Requested-With": "XMLHttpRequest",
+      },
+      body: JSON.stringify(state.refresh ? { refresh: state.refresh } : {}),
+      signal,
+      credentials: "same-origin",
+    });
+    if (!response.ok) {
+      clearTokens();
+      return null;
+    }
+    const data = await response.json().catch(() => ({}));
+    setTokens(data.access, data.refresh || state.refresh);
+    return data;
+  }
+
   function flattenError(error) {
     if (typeof error === "string") return error;
     return Object.entries(error || {}).map(([key, value]) => {
@@ -324,6 +325,48 @@ const Storefront = (() => {
       if (key === "non_field_errors" || key === "detail") return text;
       return `${key}: ${text}`;
     }).join(" ");
+  }
+
+  function saveCartSelection() {
+    localStorage.setItem("anaacoss_cart_selected", JSON.stringify([...state.cartSelectedIds]));
+  }
+
+  function syncCartSelection(cart) {
+    const itemIds = new Set((cart?.items || []).map((item) => String(item.id)));
+    state.cartSelectedIds = new Set([...state.cartSelectedIds].filter((id) => itemIds.has(String(id))));
+    if (!state.cartSelectedIds.size && localStorage.getItem("anaacoss_cart_selected") === null) {
+      (cart?.items || []).forEach((item) => state.cartSelectedIds.add(String(item.id)));
+    }
+    saveCartSelection();
+  }
+
+  function selectedCartItems(cart = state.cart) {
+    if (!cart?.items?.length) return [];
+    return cart.items.filter((item) => state.cartSelectedIds.has(String(item.id)));
+  }
+
+  function cartSelectionTotals(cart = state.cart) {
+    const items = selectedCartItems(cart);
+    const subtotal = items.reduce((sum, item) => sum + Number(item.line_total || 0), 0);
+    const originalSubtotal = items.reduce((sum, item) => sum + (Number(item.product?.price || item.unit_price || 0) * Number(item.quantity || 0)), 0);
+    const savings = Math.max(0, originalSubtotal - subtotal);
+    const couponDiscount = Number(cart?.coupon && Number(cart?.subtotal || 0) > 0 ? (subtotal / Number(cart.subtotal || 1)) * Number(cart.discount || 0) : 0);
+    const shipping = subtotal <= 0 ? 0 : (subtotal >= 2500 ? 0 : 149);
+    const total = Math.max(0, subtotal - couponDiscount + shipping);
+    return {
+      items,
+      count: items.reduce((sum, item) => sum + Number(item.quantity || 0), 0),
+      subtotal,
+      originalSubtotal,
+      savings,
+      couponDiscount,
+      shipping,
+      total,
+    };
+  }
+
+  function currency(value) {
+    return `Rs. ${Math.round(Number(value || 0))}`;
   }
 
   function homeFeedQuery(page = 1) {
@@ -349,7 +392,10 @@ const Storefront = (() => {
     const labels = [];
     const { sort, category, gender, min_price, max_price, brand, availability } = state.homeFeed.filters;
     if (sort) labels.push({ key: "sort", label: `Sort: ${sort.replace("_", " ")}` });
-    if (category) labels.push({ key: "category", label: `Category: ${category}` });
+    if (category) {
+      const categoryLabels = category.split(",").filter(Boolean);
+      labels.push({ key: "category", label: categoryLabels.length > 1 ? `Categories: ${categoryLabels.length}` : `Category: ${categoryLabels[0]}` });
+    }
     if (gender) labels.push({ key: "gender", label: `Gender: ${gender}` });
     if (brand) labels.push({ key: "brand", label: `Brand: ${brand}` });
     if (availability) labels.push({ key: "availability", label: "In Stock" });
@@ -440,10 +486,10 @@ const Storefront = (() => {
     const title = $("[data-home-filter-title]");
     const kicker = $("[data-home-filter-kicker]");
     const titles = {
-      sort: "Sort products",
-      category: "Choose category",
-      gender: "Choose gender",
-      filter: "More filters",
+      sort: "Sort By",
+      category: "Choose Category",
+      gender: "Choose Gender",
+      filter: "Advanced Filters",
     };
     $$("[data-home-filter-panel]").forEach((panel) => {
       panel.hidden = panel.dataset.homeFilterPanel !== currentPanel;
@@ -454,6 +500,15 @@ const Storefront = (() => {
       const key = button.dataset.homeFilterValue;
       button.classList.toggle("active", state.homeFeed.filters[key] === button.dataset.value);
     });
+    const categoryForm = $(".home-category-filter-form");
+    if (categoryForm) {
+      const selectedCategories = state.homeFeed.filters.category ? state.homeFeed.filters.category.split(",").filter(Boolean) : [];
+      $$('input[name="category"]', categoryForm).forEach((field) => {
+        field.checked = selectedCategories.includes(field.value);
+      });
+      const clearField = $("[data-home-category-clear]", categoryForm);
+      if (clearField) clearField.checked = !selectedCategories.length;
+    }
     const form = $(".home-advanced-filter-form");
     if (form) {
       Object.entries(state.homeFeed.filters).forEach(([key, value]) => {
@@ -556,6 +611,38 @@ const Storefront = (() => {
           ${address.is_default ? "" : `<button class="btn btn-ghost btn-small" type="button" data-address-primary="${address.id}">Set primary</button>`}
           <button class="btn btn-ghost btn-small" type="button" data-address-edit="${address.id}">Edit</button>
           <button class="btn btn-ghost btn-small profile-address-delete" type="button" data-address-delete="${address.id}">Delete</button>
+        </div>
+      </article>
+    `).join("");
+  }
+
+  function checkoutAddressCards(addresses = []) {
+    if (!addresses.length) {
+      return `
+        <div class="checkout-address-empty">
+          <p>No saved addresses yet.</p>
+          <a class="btn btn-dark btn-small" href="/add-address/?return=/checkout/" data-spa>Add your first address</a>
+        </div>`;
+    }
+    return addresses.map((address) => `
+      <article class="checkout-address-card${String(state.selectedAddressId) === String(address.id) ? " is-selected" : ""}${address.is_default ? " is-default" : ""}" data-checkout-address-card="${address.id}">
+        <label class="checkout-address-select">
+          <input type="radio" name="checkout_address" value="${address.id}" ${String(state.selectedAddressId) === String(address.id) ? "checked" : ""}>
+          <span class="checkout-address-radio"></span>
+          <span class="checkout-address-copy">
+            <span class="checkout-address-topline">
+              <strong>${address.full_name}</strong>
+              <span class="checkout-address-tag">${address.label}</span>
+              ${address.is_default ? `<span class="checkout-address-default">Default</span>` : ""}
+            </span>
+            <span>${address.phone}</span>
+            <p>${addressFullText(address)}</p>
+          </span>
+        </label>
+        <div class="checkout-address-actions">
+          ${address.is_default ? "" : `<button class="btn btn-ghost btn-small" type="button" data-checkout-address-default="${address.id}">Set Default</button>`}
+          <a class="btn btn-ghost btn-small" href="/addresses/${address.id}/edit/?return=/checkout/" data-spa>Edit</a>
+          <button class="btn btn-ghost btn-small checkout-address-delete" type="button" data-checkout-address-delete="${address.id}">Delete</button>
         </div>
       </article>
     `).join("");
@@ -738,10 +825,28 @@ const Storefront = (() => {
     state.navigationController = new AbortController();
     await runWithPending(async () => {
       clearAuthMessage();
-      const response = await fetch(targetUrl, {
-        headers: { "X-Requested-With": "XMLHttpRequest" },
+      const requestHeaders = { "X-Requested-With": "XMLHttpRequest" };
+      if (state.access) requestHeaders.Authorization = `Bearer ${state.access}`;
+      let response = await fetch(targetUrl, {
+        headers: requestHeaders,
         signal: state.navigationController.signal,
+        credentials: "same-origin",
       });
+      if (response.status === 401 && state.refresh) {
+        const refreshed = await refreshTokens(state.navigationController.signal);
+        if (refreshed) {
+          requestHeaders.Authorization = `Bearer ${state.access}`;
+          response = await fetch(targetUrl, {
+            headers: requestHeaders,
+            signal: state.navigationController.signal,
+            credentials: "same-origin",
+          });
+        }
+      }
+      if (response.status === 401) {
+        openAuthModal(document.activeElement, { returnUrl: new URL(targetUrl).pathname });
+        return;
+      }
       const html = await response.text();
       if (state.navigationToken !== token) return;
       const doc = new DOMParser().parseFromString(html, "text/html");
@@ -894,6 +999,31 @@ const Storefront = (() => {
         });
       });
     });
+
+    document.addEventListener("click", async (event) => {
+      const trigger = event.target.closest("[data-auth-logout]");
+      if (!trigger) return;
+      event.preventDefault();
+      await withLockedButton(trigger, async () => {
+        try {
+          if (state.refresh || state.access) {
+            await api("/api/auth/logout/", {
+              method: "POST",
+              body: JSON.stringify({ refresh: state.refresh }),
+            });
+          }
+        } catch {}
+        clearTokens();
+        await Promise.all([
+          updateCartBadge({ silent: true }).catch(() => null),
+          updateWishlistBadge({ silent: true }).catch(() => 0),
+        ]);
+        toast("Logged out");
+        if (window.location.pathname.startsWith("/dashboard") || window.location.pathname.startsWith("/checkout") || window.location.pathname.startsWith("/wishlist") || window.location.pathname.startsWith("/cart")) {
+          await navigate("/");
+        }
+      });
+    });
   }
 
   function bindAccountTrigger() {
@@ -983,24 +1113,34 @@ const Storefront = (() => {
 
   function productCardHtml(product) {
     const image = product.primary_image || "";
+    const hasDiscount = Boolean(product.discount_price);
     return `
-      <article class="product-card" data-product-id="${product.id}">
+      <article class="product-card" data-product-id="${product.id}" data-category="${product.category?.slug || ""}">
         <a class="product-media" href="/product/${product.slug}/" data-spa>
           ${image ? `<img src="${image}" alt="${product.name}" loading="lazy">` : `<div class="image-fallback"><i class="fa-solid fa-spa"></i></div>`}
-          ${product.badge ? `<span class="badge">${product.badge}</span>` : ""}
-          <div class="quick-actions">
-            <button type="button" data-add-cart="${product.id}"><i class="fa-solid fa-bag-shopping"></i></button>
-            <button type="button" data-wishlist="${product.id}"><i class="fa-regular fa-heart"></i></button>
-            <button type="button" data-share-product data-share-title="${product.name}" data-share-text="Check out ${product.name} on Anaacoss." data-share-url="/product/${product.slug}/"><i class="fa-solid fa-share-nodes"></i></button>
-            <button type="button" data-quick-view="${product.slug}"><i class="fa-solid fa-eye"></i></button>
+          ${product.badge ? `<span class="badge product-badge-label">${product.badge}</span>` : ""}
+          <div class="quick-actions product-overlay-actions">
+            <button type="button" data-wishlist="${product.id}" aria-label="Wishlist"><i class="fa-regular fa-heart"></i></button>
+            <button type="button" data-share-product data-share-title="${product.name}" data-share-text="Check out ${product.name} on Anaacoss." data-share-url="/product/${product.slug}/" aria-label="Share"><i class="fa-solid fa-share-nodes"></i></button>
           </div>
+          ${product.discount_percent ? `<span class="product-discount-badge">${product.discount_percent}% OFF</span>` : ""}
         </a>
         <div class="product-info">
           <p class="product-brand">${product.brand?.name || ""}</p>
           <a href="/product/${product.slug}/" data-spa><h3>${product.name}</h3></a>
-          <p>${product.short_description || ""}</p>
-          <div class="rating"><i class="fa-solid fa-star"></i> ${product.rating} <span>(${product.review_count})</span></div>
-          <div class="price-row"><strong>Rs. ${product.final_price}</strong>${product.discount_price ? `<del>Rs. ${product.price}</del>` : ""}</div>
+          <p class="product-card-copy">${product.short_description || ""}</p>
+          <div class="product-card-meta">
+            <div class="rating"><i class="fa-solid fa-star"></i> ${product.rating} <span>${product.review_count}</span></div>
+            ${hasDiscount ? `<span class="product-offer-chip">Special price</span>` : ""}
+          </div>
+          <div class="price-stack">
+            <div class="price-row"><strong>Rs. ${product.final_price}</strong>${hasDiscount ? `<del>Rs. ${product.price}</del>` : ""}</div>
+            ${hasDiscount ? `<p class="product-savings">Save ${product.discount_percent}% today</p>` : ""}
+          </div>
+          <div class="product-card-actions">
+            <button class="product-action-btn product-action-btn-primary" type="button" data-add-cart="${product.id}" aria-label="Add to cart"><i class="fa-solid fa-bag-shopping"></i><span>Add</span></button>
+            <button class="product-action-btn" type="button" data-quick-view="${product.slug}" aria-label="Quick view"><i class="fa-solid fa-eye"></i><span>View</span></button>
+          </div>
         </div>
       </article>`;
   }
@@ -1042,12 +1182,16 @@ const Storefront = (() => {
         const quantity = root?.querySelector("[data-quantity]")?.value || 1;
         const variant = root?.querySelector("[data-variant-select]")?.value || "";
         await withLockedButton(add, async () => {
-          await api("/api/cart/add/", {
-            method: "POST",
-            body: JSON.stringify({ product_id: add.dataset.addCart, quantity, variant_id: variant }),
-          });
-          toast("Added to bag");
-          await updateCartBadge();
+          try {
+            await api("/api/cart/add/", {
+              method: "POST",
+              body: JSON.stringify({ product_id: add.dataset.addCart, quantity, variant_id: variant }),
+            });
+            toast("Added to bag");
+            await updateCartBadge();
+          } catch {
+            openAuthModal(add, { returnUrl: currentUrl() });
+          }
         });
       }
 
@@ -1081,8 +1225,12 @@ const Storefront = (() => {
       if (buy) {
         event.preventDefault();
         await withLockedButton(buy, async () => {
-          await api("/api/cart/add/", { method: "POST", body: JSON.stringify({ product_id: buy.dataset.buyNow, quantity: 1 }) });
-          await navigate("/checkout/");
+          try {
+            await api("/api/cart/add/", { method: "POST", body: JSON.stringify({ product_id: buy.dataset.buyNow, quantity: 1 }) });
+            await navigate("/checkout/");
+          } catch {
+            openAuthModal(buy, { returnUrl: "/checkout/" });
+          }
         });
       }
     });
@@ -1184,6 +1332,17 @@ const Storefront = (() => {
           closeModal(modal);
         }
 
+        const categoryReset = event.target.closest("[data-home-category-reset]");
+        if (categoryReset) {
+          event.preventDefault();
+          state.homeFeed.filters.category = "";
+          syncHomeFilterModal();
+          renderHomeFilterPills();
+          closeModal(modal);
+          await refreshHomeFeed();
+          return;
+        }
+
         const resetBtn = event.target.closest("[data-home-filter-reset]");
         if (resetBtn) {
           event.preventDefault();
@@ -1207,7 +1366,36 @@ const Storefront = (() => {
         if (event.target === modal) closeModal(modal);
       });
 
+      modal?.addEventListener("change", (event) => {
+        const categoryField = event.target.closest('.home-category-filter-form input[name="category"]');
+        if (!categoryField) return;
+        const categoryForm = categoryField.closest(".home-category-filter-form");
+        const clearField = $("[data-home-category-clear]", categoryForm);
+        if (categoryField.hasAttribute("data-home-category-clear")) {
+          if (categoryField.checked) {
+            $$('input[name="category"]', categoryForm).forEach((field) => {
+              if (field !== categoryField) field.checked = false;
+            });
+          }
+          return;
+        }
+        if (clearField) clearField.checked = false;
+      });
+
       document.addEventListener("submit", async (event) => {
+        const categoryForm = event.target.closest(".home-category-filter-form");
+        if (categoryForm) {
+          event.preventDefault();
+          const selectedCategories = $$('input[name="category"]:checked', categoryForm)
+            .map((field) => field.value)
+            .filter(Boolean);
+          state.homeFeed.filters.category = selectedCategories.join(",");
+          renderHomeFilterPills();
+          syncHomeFilterModal();
+          closeModal(modal);
+          await refreshHomeFeed();
+          return;
+        }
         const form = event.target.closest(".home-advanced-filter-form");
         if (!form) return;
         event.preventDefault();
@@ -1253,22 +1441,85 @@ const Storefront = (() => {
   function renderCart(cart) {
     const itemsRoot = $("[data-cart-items]");
     const summary = $("[data-cart-summary]");
+    const couponChipRow = $("[data-coupon-chip-row]");
+    const bagMeta = $("[data-cart-bag-meta]");
+    const savingsBanner = $("[data-cart-savings-banner]");
+    const savingsText = $("[data-cart-savings-text]");
+    const stickyCount = $("[data-sticky-order-count]");
+    const stickyTotal = $("[data-sticky-order-total]");
+    state.cart = cart;
+    syncCartSelection(cart);
+    const totals = cartSelectionTotals(cart);
     if (itemsRoot) {
-      itemsRoot.innerHTML = cart.items.length ? cart.items.map((item) => `
-        <article class="cart-line">
-          ${item.product.primary_image ? `<img src="${item.product.primary_image}" alt="${item.product.name}">` : `<div class="image-fallback"></div>`}
-          <div><h3>${item.product.name}</h3><p>Rs. ${item.unit_price}</p><div class="cart-qty"><button data-cart-dec="${item.id}">-</button><span>${item.quantity}</span><button data-cart-inc="${item.id}">+</button></div></div>
-          <div><strong>Rs. ${item.line_total}</strong><button class="icon-btn" data-cart-remove="${item.id}"><i class="fa-solid fa-trash"></i></button></div>
-        </article>`).join("") : `<p class="empty-state">Your bag is waiting for a ritual.</p>`;
+      itemsRoot.innerHTML = cart.items.length ? cart.items.map((item, index) => {
+        const selected = state.cartSelectedIds.has(String(item.id));
+        const originalPrice = Number(item.product?.price || item.unit_price || 0) * Number(item.quantity || 0);
+        const finalPrice = Number(item.line_total || 0);
+        const discountPercent = originalPrice > finalPrice ? Math.round(((originalPrice - finalPrice) / originalPrice) * 100) : 0;
+        const qtyOptions = Array.from({ length: 5 }, (_, idx) => idx + 1)
+          .map((qty) => `<option value="${qty}" ${qty === Number(item.quantity) ? "selected" : ""}>Qty: ${qty}</option>`)
+          .join("");
+        return `
+        <article class="cart-item${selected ? " is-selected" : ""}" data-cart-item="${item.id}">
+          <div class="item-image-wrap">
+            <label class="cart-item-check">
+              <input type="checkbox" data-cart-select="${item.id}" ${selected ? "checked" : ""}>
+              <span></span>
+            </label>
+            ${item.product.primary_image ? `<img class="item-image" src="${item.product.primary_image}" alt="${item.product.name}">` : `<div class="item-image image-fallback"></div>`}
+          </div>
+          <div class="item-info">
+            <div class="item-title-row">
+              <div>
+                <h3>${item.product.name}</h3>
+                <p>${item.product.short_description || item.product.brand?.name || "Luxury beauty essential"}</p>
+              </div>
+              <button class="cart-item-remove" type="button" data-cart-remove="${item.id}" aria-label="Remove item"><i class="fa-solid fa-trash"></i></button>
+            </div>
+            <div class="item-meta-row">
+              <label class="item-meta-pill item-qty-pill">
+                <select data-cart-qty-select="${item.id}" aria-label="Select quantity">${qtyOptions}</select>
+                <i class="fa-solid fa-angle-down"></i>
+              </label>
+            </div>
+            <div class="item-price-row">
+              <strong>${currency(finalPrice)}</strong>
+              ${originalPrice > finalPrice ? `<del>${currency(originalPrice)}</del><span class="item-discount">${discountPercent}% OFF</span>` : ""}
+            </div>
+            <div class="item-return-row"><i class="fa-solid fa-rotate-left"></i><span>7 days return & exchange available</span></div>
+          </div>
+        </article>${index < cart.items.length - 1 ? `<div class="cart-item-separator"></div>` : ""}`;
+      }).join("") : `<p class="empty-state">Your bag is waiting for a ritual.</p>`;
     }
     if (summary) {
       summary.innerHTML = `
-        <div class="summary-row"><span>Subtotal</span><strong>Rs. ${cart.subtotal}</strong></div>
-        <div class="summary-row"><span>Discount</span><strong>- Rs. ${cart.discount}</strong></div>
-        <div class="summary-row"><span>Shipping</span><strong>Rs. ${cart.shipping}</strong></div>
-        <div class="summary-row total"><span>Total</span><strong>Rs. ${cart.total}</strong></div>
-        ${cart.coupon ? `<p class="coupon-highlight">${cart.coupon.code} applied</p>` : ""}`;
+        <div class="summary-row"><span>Subtotal</span><strong>${currency(totals.originalSubtotal)}</strong></div>
+        <div class="summary-row"><span>Discount</span><strong>- ${currency(totals.savings + totals.couponDiscount)}</strong></div>
+        <div class="summary-row"><span>Shipping</span><strong>${currency(totals.shipping)}</strong></div>
+        <div class="summary-row total"><span>Total</span><strong>${currency(totals.total)}</strong></div>`;
     }
+    if (couponChipRow) {
+      if (cart.coupon) {
+        couponChipRow.hidden = false;
+        couponChipRow.innerHTML = `
+          <span class="cart-coupon-chip">
+            <i class="fa-solid fa-ticket"></i>
+            <span>${cart.coupon.code}</span>
+            <button type="button" data-remove-coupon aria-label="Remove coupon"><i class="fa-solid fa-xmark"></i></button>
+          </span>`;
+      } else {
+        couponChipRow.hidden = true;
+        couponChipRow.innerHTML = "";
+      }
+    }
+    if (bagMeta) bagMeta.textContent = `${totals.count} item${totals.count === 1 ? "" : "s"} selected | ${currency(totals.total)}`;
+    if (savingsBanner && savingsText) {
+      const savedAmount = totals.savings + totals.couponDiscount;
+      savingsBanner.hidden = savedAmount <= 0;
+      savingsText.textContent = `You're saving ₹${Math.round(savedAmount)} on this order`;
+    }
+    if (stickyCount) stickyCount.textContent = `${totals.count} Item${totals.count === 1 ? "" : "s"} selected for order`;
+    if (stickyTotal) stickyTotal.textContent = `Total ₹${Math.round(totals.total)}`;
   }
 
   function bindCart() {
@@ -1279,27 +1530,110 @@ const Storefront = (() => {
     state.handlersBound.cart = true;
 
     document.addEventListener("click", async (event) => {
-      const inc = event.target.closest("[data-cart-inc]");
-      const dec = event.target.closest("[data-cart-dec]");
       const remove = event.target.closest("[data-cart-remove]");
-      if (!inc && !dec && !remove) return;
-      event.preventDefault();
-      const trigger = inc || dec || remove;
-      await withLockedButton(trigger, async () => {
-        const cart = await api("/api/cart/", { silent: true });
-        const id = trigger.dataset.cartInc || trigger.dataset.cartDec || trigger.dataset.cartRemove;
-        if (remove) {
-          await api(`/api/cart/items/${id}/`, { method: "DELETE", silent: true });
-        } else {
-          const item = cart.items.find((row) => String(row.id) === String(id));
-          if (!item) return;
-          const quantity = Math.max(1, item.quantity + (inc ? 1 : -1));
-          await api(`/api/cart/items/${id}/`, {
-            method: "PATCH",
-            body: JSON.stringify({ quantity }),
-            silent: true,
-          });
+      if (remove) {
+        event.preventDefault();
+        await withLockedButton(remove, async () => {
+          await api(`/api/cart/items/${remove.dataset.cartRemove}/`, { method: "DELETE", silent: true });
+          await updateCartBadge({ silent: true });
+        });
+        return;
+      }
+
+      const tab = event.target.closest("[data-cart-tab]");
+      if (tab) {
+        event.preventDefault();
+        $$("[data-cart-tab]").forEach((item) => item.classList.toggle("is-active", item === tab));
+        $$("[data-cart-panel]").forEach((panel) => panel.classList.toggle("is-active", panel.dataset.cartPanel === tab.dataset.cartTab));
+        return;
+      }
+
+      const select = event.target.closest("[data-cart-select]");
+      if (select) {
+        const input = select.matches("input") ? select : $("input", select.closest("label"));
+        const itemId = input?.dataset.cartSelect;
+        if (!itemId) return;
+        if (input.checked) state.cartSelectedIds.add(String(itemId));
+        else state.cartSelectedIds.delete(String(itemId));
+        saveCartSelection();
+        renderCart(state.cart);
+        return;
+      }
+
+      const deleteSelected = event.target.closest("[data-cart-delete-selected]");
+      if (deleteSelected) {
+        event.preventDefault();
+        await withLockedButton(deleteSelected, async () => {
+          for (const itemId of [...state.cartSelectedIds]) {
+            await api(`/api/cart/items/${itemId}/`, { method: "DELETE", silent: true });
+          }
+          state.cartSelectedIds.clear();
+          saveCartSelection();
+          await updateCartBadge({ silent: true });
+        });
+        return;
+      }
+
+      const wishlistSelected = event.target.closest("[data-cart-move-wishlist]");
+      if (wishlistSelected) {
+        event.preventDefault();
+        await withLockedButton(wishlistSelected, async () => {
+          const items = selectedCartItems();
+          for (const item of items) {
+            await api("/api/wishlist/toggle/", { method: "POST", body: JSON.stringify({ product_id: item.product.id }), silent: true });
+            await api(`/api/cart/items/${item.id}/`, { method: "DELETE", silent: true });
+          }
+          state.cartSelectedIds.clear();
+          saveCartSelection();
+          await Promise.all([updateCartBadge({ silent: true }), updateWishlistBadge({ silent: true })]);
+          toast("Moved selected items to wishlist");
+        });
+        return;
+      }
+
+      const shareSelected = event.target.closest("[data-cart-share-selected]");
+      if (shareSelected) {
+        event.preventDefault();
+        const items = selectedCartItems();
+        if (!items.length) {
+          toast("Select at least one item to share");
+          return;
         }
+        sharePayload = {
+          title: "Anaacoss Cart",
+          text: `Check out ${items.map((item) => item.product.name).join(", ")} on Anaacoss.`,
+          url: window.location.href,
+        };
+        const usedNative = await openNativeShare(sharePayload);
+        if (!usedNative) {
+          updateShareModal();
+          openModal($("[data-share-modal]"), shareSelected);
+        }
+        return;
+      }
+
+      const placeOrder = event.target.closest("[data-cart-place-order]");
+      if (placeOrder) {
+        event.preventDefault();
+        const items = selectedCartItems();
+        if (!items.length) {
+          toast("Select at least one item to place the order");
+          return;
+        }
+        saveCartSelection();
+        await navigate("/checkout/");
+      }
+    });
+
+    document.addEventListener("change", async (event) => {
+      const qtySelect = event.target.closest("[data-cart-qty-select]");
+      if (!qtySelect) return;
+      await withLockedButton(qtySelect, async () => {
+        await api(`/api/cart/items/${qtySelect.dataset.cartQtySelect}/`, {
+          method: "PATCH",
+          body: JSON.stringify({ quantity: Number(qtySelect.value.replace(/\D/g, "")) || Number(qtySelect.value) || 1 }),
+          silent: true,
+        });
         await updateCartBadge({ silent: true });
       });
     });
@@ -1313,6 +1647,7 @@ const Storefront = (() => {
           try {
             const data = await api("/api/cart/coupon/", { method: "POST", body: JSON.stringify(Object.fromEntries(new FormData(coupon).entries())) });
             renderCart(data);
+            coupon.reset();
             toast("Coupon applied");
           } catch (error) {
             toast(flattenError(error));
@@ -1321,9 +1656,11 @@ const Storefront = (() => {
       });
     }
 
-    $("[data-remove-coupon]")?.addEventListener("click", async (event) => {
-      const button = event.currentTarget;
-      await withLockedButton(button, async () => {
+    document.addEventListener("click", async (event) => {
+      const removeCoupon = event.target.closest("[data-remove-coupon]");
+      if (!removeCoupon) return;
+      event.preventDefault();
+      await withLockedButton(removeCoupon, async () => {
         const data = await api("/api/cart/coupon/", { method: "DELETE" });
         renderCart(data);
         toast("Coupon removed");
@@ -1332,9 +1669,69 @@ const Storefront = (() => {
   }
 
   function bindCheckout() {
+    const list = $("[data-checkout-address-list]");
     const form = $("[data-checkout-form]");
-    if (!form) return;
+    if (!form && !list) return;
     fillCheckoutForm(state.user, selectedAddress());
+    if (list) {
+      refreshAddresses({ silent: true }).then(() => {
+        list.innerHTML = checkoutAddressCards(state.addresses);
+        fillCheckoutForm(state.user, selectedAddress());
+      }).catch(() => null);
+    }
+    if (list && list.dataset.bound !== "true") {
+      list.dataset.bound = "true";
+      list.addEventListener("change", async (event) => {
+        const input = event.target.closest('input[name="checkout_address"]');
+        if (!input) return;
+        const address = state.addresses.find((item) => String(item.id) === String(input.value));
+        if (!address) return;
+        state.selectedAddressId = address.id;
+        list.innerHTML = checkoutAddressCards(state.addresses);
+        fillCheckoutForm(state.user, address);
+      });
+
+      list.addEventListener("click", async (event) => {
+        const defaultBtn = event.target.closest("[data-checkout-address-default]");
+        if (defaultBtn) {
+          event.preventDefault();
+          await withLockedButton(defaultBtn, async () => {
+            try {
+              const address = await api(`/api/auth/addresses/${defaultBtn.dataset.checkoutAddressDefault}/set_default/`, { method: "POST" });
+              state.addresses = state.addresses.map((item) => ({ ...item, is_default: String(item.id) === String(address.id) }));
+              state.selectedAddressId = address.id;
+              list.innerHTML = checkoutAddressCards(state.addresses);
+              fillCheckoutForm(state.user, address);
+              await updateDeliveryStrip({ silent: true });
+              toast("Default address updated");
+            } catch (error) {
+              toast(flattenError(error));
+            }
+          });
+          return;
+        }
+
+        const deleteBtn = event.target.closest("[data-checkout-address-delete]");
+        if (deleteBtn) {
+          event.preventDefault();
+          await withLockedButton(deleteBtn, async () => {
+            try {
+              await api(`/api/auth/addresses/${deleteBtn.dataset.checkoutAddressDelete}/`, { method: "DELETE" });
+              await refreshAddresses({ silent: true });
+              list.innerHTML = checkoutAddressCards(state.addresses);
+              fillCheckoutForm(state.user, selectedAddress());
+              await updateDeliveryStrip({ silent: true });
+              toast("Address deleted");
+            } catch (error) {
+              toast(flattenError(error));
+            }
+          });
+        }
+      });
+    }
+
+    if (!form || form.dataset.bound === "true") return;
+    form.dataset.bound = "true";
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
       const submitter = event.submitter || form.querySelector('[type="submit"]');
@@ -1347,14 +1744,50 @@ const Storefront = (() => {
         toast("Login to place your order");
         return;
       }
+      if (!form.elements.namedItem("address_id")?.value) {
+        toast("Select a saved address to continue");
+        return;
+      }
       await withLockedButton(submitter, async () => {
         try {
-          const data = await api("/api/orders/", { method: "POST", body: JSON.stringify(Object.fromEntries(new FormData(form).entries())) });
+          const payload = Object.fromEntries(new FormData(form).entries());
+          payload.selected_item_ids = JSON.parse(localStorage.getItem("anaacoss_cart_selected") || "[]");
+          if (!payload.selected_item_ids.length && state.cart?.items?.length) {
+            payload.selected_item_ids = state.cart.items.map((item) => item.id);
+          }
+          const data = await api("/api/orders/", { method: "POST", body: JSON.stringify(payload) });
           toast(`Order #${data.id} placed`);
+          localStorage.removeItem("anaacoss_cart_selected");
+          state.cartSelectedIds = new Set();
           await updateCartBadge();
           await navigate("/dashboard/");
         } catch (error) {
           toast(flattenError(error));
+        }
+      });
+    });
+  }
+
+  function bindAddressPage() {
+    const form = $("[data-address-page-form]");
+    if (!form) return;
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const submitter = event.submitter || form.querySelector('[type="submit"]');
+      const message = $("[data-address-page-message]");
+      await withLockedButton(submitter, async () => {
+        try {
+          const payload = Object.fromEntries(new FormData(form).entries());
+          payload.is_default = form.elements.namedItem("is_default")?.checked || false;
+          const addressId = form.dataset.addressId;
+          const method = form.dataset.addressMode === "edit" && addressId ? "PATCH" : "POST";
+          const endpoint = method === "PATCH" ? `/api/auth/addresses/${addressId}/` : "/api/auth/addresses/";
+          await api(endpoint, { method, body: JSON.stringify(payload) });
+          await refreshAddresses({ silent: true });
+          const returnUrl = form.dataset.addressReturn || "/checkout/";
+          await navigate(returnUrl);
+        } catch (error) {
+          if (message) message.textContent = flattenError(error);
         }
       });
     });
@@ -1864,6 +2297,7 @@ const Storefront = (() => {
     bindLocationModal();
     bindShareModal();
     bindHomeFeed();
+    bindAddressPage();
     bindHomeHero();
     bindCategoryMarquee();
     bindDashboard();

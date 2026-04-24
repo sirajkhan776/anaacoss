@@ -117,7 +117,12 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
         if q := params.get("q"):
             qs = qs.filter(Q(name__icontains=q) | Q(short_description__icontains=q) | Q(brand__name__icontains=q))
         if category := params.get("category"):
-            qs = qs.filter(Q(category__slug=category) | Q(category__parent__slug=category))
+            category_values = [item.strip() for item in category.split(",") if item.strip()]
+            if category_values:
+                category_query = Q()
+                for category_slug in category_values:
+                    category_query |= Q(category__slug=category_slug) | Q(category__parent__slug=category_slug)
+                qs = qs.filter(category_query)
         if gender := params.get("gender"):
             qs = qs.filter(gender=gender)
         if brand := params.get("brand"):

@@ -2,25 +2,72 @@
 {% block title %}Checkout - Anaacoss{% endblock %}
 {% block content %}
 <section class="page-hero compact"><p class="eyebrow">Secure checkout</p><h1>Complete your order</h1></section>
-<section class="checkout-layout">
-  <form class="checkout-form" data-checkout-form>
-    <div class="form-grid">
-      <input class="lux-input" name="full_name" placeholder="Full name" required>
-      <input class="lux-input" name="email" type="email" placeholder="Email" required>
-      <input class="lux-input" name="phone" placeholder="Phone" required>
-      <input class="lux-input" name="address_line1" placeholder="Address line 1" required>
-      <input class="lux-input" name="address_line2" placeholder="Address line 2">
-      <input class="lux-input" name="city" placeholder="City" required>
-      <input class="lux-input" name="state" placeholder="State" required>
-      <input class="lux-input" name="postal_code" placeholder="Postal code" required>
-    </div>
-    <div class="payment-methods">
-      <label><input type="radio" name="payment_method" value="cod" checked> Pay on delivery</label>
-      <label><input type="radio" name="payment_method" value="card"> Card placeholder</label>
-      <label><input type="radio" name="payment_method" value="upi"> UPI placeholder</label>
-    </div>
-    <button class="btn btn-dark" type="submit">Place order</button>
-  </form>
+<section class="checkout-layout checkout-address-layout" data-checkout-root>
+  <div class="checkout-stage">
+    <section class="checkout-address-panel">
+      <div class="checkout-address-head">
+        <div>
+          <p class="eyebrow">Delivery address</p>
+          <h2>Choose a saved address</h2>
+        </div>
+        <a class="btn btn-dark btn-small" href="{% url 'add-address' %}?return=/checkout/" data-spa>Add New Address</a>
+      </div>
+
+      <div class="checkout-address-list" data-checkout-address-list>
+        {% for address in addresses %}
+          <article class="checkout-address-card{% if selected_address and selected_address.id == address.id %} is-selected{% endif %}{% if address.is_default %} is-default{% endif %}" data-checkout-address-card="{{ address.id }}">
+            <label class="checkout-address-select">
+              <input type="radio" name="checkout_address" value="{{ address.id }}" {% if selected_address and selected_address.id == address.id %}checked{% endif %}>
+              <span class="checkout-address-radio"></span>
+              <span class="checkout-address-copy">
+                <span class="checkout-address-topline">
+                  <strong>{{ address.full_name }}</strong>
+                  <span class="checkout-address-tag">{{ address.label }}</span>
+                  {% if address.is_default %}<span class="checkout-address-default">Default</span>{% endif %}
+                </span>
+                <span>{{ address.phone }}</span>
+                <p>{{ address.line1 }}{% if address.line2 %}, {{ address.line2 }}{% endif %}, {{ address.city }}, {{ address.state }} {{ address.postal_code }}</p>
+              </span>
+            </label>
+            <div class="checkout-address-actions">
+              {% if not address.is_default %}
+                <button class="btn btn-ghost btn-small" type="button" data-checkout-address-default="{{ address.id }}">Set Default</button>
+              {% endif %}
+              <a class="btn btn-ghost btn-small" href="{% url 'edit-address' address.id %}?return=/checkout/" data-spa>Edit</a>
+              <button class="btn btn-ghost btn-small checkout-address-delete" type="button" data-checkout-address-delete="{{ address.id }}">Delete</button>
+            </div>
+          </article>
+        {% empty %}
+          <div class="checkout-address-empty">
+            <p>No saved addresses yet.</p>
+            <a class="btn btn-dark btn-small" href="{% url 'add-address' %}?return=/checkout/" data-spa>Add your first address</a>
+          </div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <form class="checkout-form checkout-payment-panel" data-checkout-form>
+      <input type="hidden" name="address_id" value="{% if selected_address %}{{ selected_address.id }}{% endif %}" data-checkout-address-input>
+      <div class="checkout-payment-head">
+        <p class="eyebrow">Payment method</p>
+        <h3>Choose how you want to pay</h3>
+      </div>
+      <div class="payment-methods">
+        <label><input type="radio" name="payment_method" value="cod" checked> Pay on delivery</label>
+        <label><input type="radio" name="payment_method" value="card"> Card placeholder</label>
+        <label><input type="radio" name="payment_method" value="upi"> UPI placeholder</label>
+      </div>
+      <p class="form-note checkout-address-note" data-checkout-address-note>
+        {% if selected_address %}
+          Delivering to {{ selected_address.full_name }} at {{ selected_address.label }}.
+        {% else %}
+          Select or add an address before placing your order.
+        {% endif %}
+      </p>
+      <button class="btn btn-dark" type="submit">Place order</button>
+    </form>
+  </div>
+
   <aside class="summary-card">
     <h3>Ritual summary</h3>
     <div data-cart-summary></div>

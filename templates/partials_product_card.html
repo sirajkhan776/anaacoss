@@ -1,4 +1,4 @@
-<article class="product-card" data-product-id="{{ product.id }}">
+<article class="product-card" data-product-id="{{ product.id }}" data-category="{{ product.category.slug }}">
   <a class="product-media" href="{{ product.get_absolute_url }}" data-spa>
     {% with primary=product.images.all|dictsort:"sort_order"|first %}
       {% if primary.url %}
@@ -7,22 +7,39 @@
         <div class="image-fallback"><i class="fa-solid fa-spa"></i></div>
       {% endif %}
     {% endwith %}
-    {% if product.badge %}<span class="badge">{{ product.badge }}</span>{% endif %}
-    <div class="quick-actions">
-      <button type="button" data-add-cart="{{ product.id }}" aria-label="Add to cart"><i class="fa-solid fa-bag-shopping"></i></button>
+    {% if product.badge %}<span class="badge product-badge-label">{{ product.badge }}</span>{% endif %}
+    <div class="quick-actions product-overlay-actions">
       <button type="button" data-wishlist="{{ product.id }}" aria-label="Wishlist"><i class="fa-regular fa-heart"></i></button>
       <button type="button" data-share-product data-share-title="{{ product.name }}" data-share-text="Check out {{ product.name }} on Anaacoss." data-share-url="{{ product.get_absolute_url }}" aria-label="Share"><i class="fa-solid fa-share-nodes"></i></button>
-      <button type="button" data-quick-view="{{ product.slug }}" aria-label="Quick view"><i class="fa-solid fa-eye"></i></button>
     </div>
+    {% if product.discount_percent %}<span class="product-discount-badge">{{ product.discount_percent }}% OFF</span>{% endif %}
   </a>
   <div class="product-info">
     <p class="product-brand">{{ product.brand.name }}</p>
     <a href="{{ product.get_absolute_url }}" data-spa><h3>{{ product.name }}</h3></a>
-    <p>{{ product.short_description }}</p>
-    <div class="rating"><i class="fa-solid fa-star"></i> {{ product.rating }} <span>({{ product.review_count }})</span></div>
-    <div class="price-row">
-      <strong>Rs. {{ product.final_price }}</strong>
-      {% if product.discount_price %}<del>Rs. {{ product.price }}</del>{% endif %}
+    <p class="product-card-copy">{{ product.short_description }}</p>
+    <div class="product-card-meta">
+      <div class="rating"><i class="fa-solid fa-star"></i> {{ product.rating }} <span>{{ product.review_count }}</span></div>
+      {% if product.discount_price %}<span class="product-offer-chip">Special price</span>{% endif %}
+    </div>
+    <div class="price-stack">
+      <div class="price-row">
+        <strong>Rs. {{ product.final_price }}</strong>
+        {% if product.discount_price %}<del>Rs. {{ product.price }}</del>{% endif %}
+      </div>
+      {% if product.discount_price %}
+        <p class="product-savings">Save {{ product.discount_percent }}% today</p>
+      {% endif %}
+    </div>
+    <div class="product-card-actions">
+      <button class="product-action-btn product-action-btn-primary" type="button" data-add-cart="{{ product.id }}" aria-label="Add to cart">
+        <i class="fa-solid fa-bag-shopping"></i>
+        <span>Add</span>
+      </button>
+      <button class="product-action-btn" type="button" data-quick-view="{{ product.slug }}" aria-label="Quick view">
+        <i class="fa-solid fa-eye"></i>
+        <span>View</span>
+      </button>
     </div>
   </div>
 </article>

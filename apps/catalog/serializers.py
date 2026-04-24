@@ -38,6 +38,7 @@ class ProductCardSerializer(serializers.ModelSerializer):
     secondary_image = serializers.SerializerMethodField()
     final_price = serializers.ReadOnlyField()
     in_stock = serializers.ReadOnlyField()
+    discount_percent = serializers.ReadOnlyField()
 
     class Meta:
         model = Product
@@ -52,6 +53,7 @@ class ProductCardSerializer(serializers.ModelSerializer):
             "price",
             "discount_price",
             "final_price",
+            "discount_percent",
             "badge",
             "rating",
             "review_count",

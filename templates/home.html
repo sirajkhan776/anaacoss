@@ -179,17 +179,29 @@
       <button class="home-filter-option" type="button" data-home-filter-value="sort" data-value="popular">Popular</button>
     </div>
 
-    <div class="home-filter-panel" data-home-filter-panel="category" hidden>
-      <button class="home-filter-option active" type="button" data-home-filter-value="category" data-value="">All Categories</button>
-      {% for category in home_categories %}
-        <button class="home-filter-option" type="button" data-home-filter-value="category" data-value="{{ category.slug }}">{{ category.name }}</button>
-      {% endfor %}
-    </div>
+    <form class="home-filter-panel home-category-filter-form" data-home-filter-panel="category" hidden>
+      <label class="home-filter-check home-filter-check-all">
+        <input type="checkbox" name="category" value="" data-home-category-clear>
+        <span>All Categories</span>
+      </label>
+      <div class="home-filter-check-grid">
+        {% for category in home_categories %}
+          <label class="home-filter-check">
+            <input type="checkbox" name="category" value="{{ category.slug }}">
+            <span>{{ category.name }}</span>
+          </label>
+        {% endfor %}
+      </div>
+      <div class="home-filter-actions">
+        <button class="btn btn-ghost" type="button" data-home-category-reset>Reset</button>
+        <button class="btn btn-dark" type="submit">Apply Categories</button>
+      </div>
+    </form>
 
     <div class="home-filter-panel" data-home-filter-panel="gender" hidden>
       <button class="home-filter-option active" type="button" data-home-filter-value="gender" data-value="">All</button>
-      <button class="home-filter-option" type="button" data-home-filter-value="gender" data-value="male">Male</button>
-      <button class="home-filter-option" type="button" data-home-filter-value="gender" data-value="female">Female</button>
+      <button class="home-filter-option" type="button" data-home-filter-value="gender" data-value="male">Men</button>
+      <button class="home-filter-option" type="button" data-home-filter-value="gender" data-value="female">Women</button>
       <button class="home-filter-option" type="button" data-home-filter-value="gender" data-value="unisex">Unisex</button>
     </div>
 

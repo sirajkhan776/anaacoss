@@ -1,18 +1,86 @@
 {% extends "base.html" %}
 {% block title %}Your Bag - Anaacoss{% endblock %}
+{% block extra_head %}
+<style>
+  .mobile-bottom-nav { display: none !important; }
+</style>
+{% endblock %}
 {% block content %}
-<section class="page-hero compact"><p class="eyebrow">Shopping bag</p><h1>Your ritual bag</h1></section>
-<section class="cart-layout">
-  <div class="cart-items" data-cart-items></div>
-  <aside class="summary-card">
-    <h3>Order summary</h3>
-    <div data-cart-summary></div>
-    <form data-coupon-form>
-      <input class="lux-input" name="code" placeholder="Coupon code">
-      <button class="btn btn-dark" type="submit">Apply</button>
-    </form>
-    <button class="btn btn-ghost full" type="button" data-remove-coupon>Remove coupon</button>
-    <a class="btn btn-dark full" href="/checkout/" data-spa data-auth-required data-auth-return-url="/checkout/">Checkout</a>
-  </aside>
+<section class="cart-page" data-cart-page>
+  <section class="cart-address-bar">
+    <div class="cart-address-copy">
+      <p class="eyebrow">Deliver to</p>
+      {% if selected_address %}
+        <h2>{{ selected_address.full_name }}</h2>
+        <p>{{ selected_address.line1 }}{% if selected_address.line2 %}, {{ selected_address.line2 }}{% endif %}, {{ selected_address.city }}, {{ selected_address.state }} {{ selected_address.postal_code }}</p>
+      {% else %}
+        <h2>{{ request.user.first_name|default:request.user.username }}</h2>
+        <p>Add a delivery address to continue checkout smoothly.</p>
+      {% endif %}
+    </div>
+    <a class="btn btn-ghost btn-small" href="/checkout/" data-spa>Change</a>
+  </section>
+
+  <div class="cart-tabs" data-cart-tabs>
+    <button class="cart-tab is-active" type="button" data-cart-tab="items">Items</button>
+    <button class="cart-tab" type="button" data-cart-tab="offers">Coupons &amp; Bank Offers</button>
+    <button class="cart-tab" type="button" data-cart-tab="price">Price Details</button>
+  </div>
+
+  <div class="savings-banner" data-cart-savings-banner hidden>
+    <i class="fa-solid fa-badge-percent"></i>
+    <span data-cart-savings-text>You're saving ₹0 on this order</span>
+  </div>
+
+  <section class="bag-header">
+    <div>
+      <h3>Your Bag</h3>
+      <p data-cart-bag-meta>0 items selected</p>
+    </div>
+    <div class="bag-header-actions">
+      <button class="icon-btn" type="button" data-cart-share-selected aria-label="Share selected items"><i class="fa-solid fa-share-nodes"></i></button>
+      <button class="icon-btn" type="button" data-cart-move-wishlist aria-label="Move selected items to wishlist"><i class="fa-regular fa-heart"></i></button>
+      <button class="icon-btn" type="button" data-cart-delete-selected aria-label="Delete selected items"><i class="fa-solid fa-trash"></i></button>
+    </div>
+  </section>
+
+  <section class="cart-panel is-active" data-cart-panel="items">
+    <div class="cart-card">
+      <div class="cart-items" data-cart-items></div>
+    </div>
+  </section>
+
+  <section class="cart-panel" data-cart-panel="offers">
+    <div class="cart-card cart-offers-card">
+      <div class="cart-offers-head">
+        <h3>Coupons &amp; Bank Offers</h3>
+        <p>Apply a coupon or use your existing offer before placing the order.</p>
+      </div>
+      <form class="cart-coupon-form" data-coupon-form>
+        <div class="cart-coupon-input-wrap">
+          <input class="lux-input cart-coupon-input" name="code" placeholder="Enter coupon code">
+          <button class="cart-coupon-apply" type="submit" aria-label="Apply coupon">
+            <i class="fa-solid fa-arrow-right"></i>
+          </button>
+        </div>
+      </form>
+      <div class="cart-coupon-chip-row" data-coupon-chip-row hidden></div>
+    </div>
+  </section>
+
+  <section class="cart-panel" data-cart-panel="price">
+    <aside class="summary-card cart-summary-card">
+      <h3>Price Details</h3>
+      <div data-cart-summary></div>
+    </aside>
+  </section>
 </section>
+
+<div class="sticky-order-bar" data-sticky-order-bar>
+  <div class="sticky-order-strip">
+    <strong data-sticky-order-count>0 Item selected for order</strong>
+    <span data-sticky-order-total>Total Rs. 0</span>
+  </div>
+  <button class="btn sticky-order-btn" type="button" data-cart-place-order>Place Order</button>
+</div>
 {% endblock %}
