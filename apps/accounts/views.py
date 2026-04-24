@@ -71,3 +71,8 @@ class AddressViewSet(viewsets.ModelViewSet):
         if serializer.validated_data.get("is_default"):
             Address.objects.filter(user=self.request.user).update(is_default=False)
         serializer.save(user=self.request.user)
+
+    def perform_update(self, serializer):
+        if serializer.validated_data.get("is_default"):
+            Address.objects.filter(user=self.request.user).exclude(pk=serializer.instance.pk).update(is_default=False)
+        serializer.save()

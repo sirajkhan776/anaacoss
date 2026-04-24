@@ -12,13 +12,17 @@ const Storefront = (() => {
     pendingAuthAction: null,
     heroTimer: null,
     categoryMarqueeRaf: null,
+    navigationController: null,
+    navigationToken: 0,
     bootstrapped: false,
     handlersBound: {
       navigation: false,
+      mobileNavigation: false,
       auth: false,
       products: false,
       cart: false,
       location: false,
+      dashboardAddress: false,
       accountTrigger: false,
     },
   };
@@ -171,6 +175,12 @@ const Storefront = (() => {
     return [address.line1, address.line2, address.city, address.state, address.postal_code].filter(Boolean).join(", ");
   }
 
+  function normalizeAddressList(payload) {
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.results)) return payload.results;
+    return [];
+  }
+
   function setAuthTab(mode = "login") {
     $$("[data-auth-tab]").forEach((tab) => tab.classList.toggle("active", tab.dataset.authTab === mode));
     $$("[data-auth-form]").forEach((form) => form.classList.toggle("active", form.dataset.authForm === mode));
@@ -321,6 +331,62 @@ const Storefront = (() => {
     `).join("");
   }
 
+  function profileAddressCards(addresses = []) {
+    if (!addresses.length) {
+      return `<p class="location-empty">No saved addresses yet.</p>`;
+    }
+    return addresses.map((address) => `
+      <article class="profile-address-card${address.is_default ? " is-default" : ""}">
+        <div class="profile-address-top">
+          <strong>${address.label}</strong>
+          ${address.is_default ? `<span class="profile-address-badge">Primary</span>` : ""}
+        </div>
+        <p class="profile-address-name">${address.full_name}${address.phone ? ` - ${address.phone}` : ""}</p>
+        <p>${addressFullText(address)}</p>
+        <div class="profile-address-actions">
+          ${address.is_default ? "" : `<button class="btn btn-ghost btn-small" type="button" data-address-primary="${address.id}">Set primary</button>`}
+          <button class="btn btn-ghost btn-small" type="button" data-address-edit="${address.id}">Edit</button>
+          <button class="btn btn-ghost btn-small profile-address-delete" type="button" data-address-delete="${address.id}">Delete</button>
+        </div>
+      </article>
+    `).join("");
+  }
+
+  function profileAddressModalHtml() {
+    return `
+      <div class="modal-shell" data-address-modal aria-hidden="true">
+        <div class="modal-card location-modal-card profile-address-modal" role="dialog" aria-modal="true" tabindex="-1">
+          <button class="icon-btn modal-close" type="button" data-address-close><i class="fa-solid fa-xmark"></i></button>
+          <div class="location-modal-head">
+            <h3 data-address-modal-title>Add address</h3>
+          </div>
+          <form class="location-modal-body profile-address-form" data-address-form data-address-mode="create">
+            <div class="form-grid">
+              <input class="lux-input" name="label" placeholder="Label (Home, Work)" required>
+              <input class="lux-input" name="full_name" placeholder="Full name" required>
+            </div>
+            <input class="lux-input" name="phone" placeholder="Phone number" required>
+            <input class="lux-input" name="line1" placeholder="Address line 1" required>
+            <input class="lux-input" name="line2" placeholder="Address line 2">
+            <div class="form-grid">
+              <input class="lux-input" name="city" placeholder="City" required>
+              <input class="lux-input" name="state" placeholder="State" required>
+            </div>
+            <div class="form-grid">
+              <input class="lux-input" name="postal_code" placeholder="Postal code" required>
+              <input class="lux-input" name="country" placeholder="Country" value="India" required>
+            </div>
+            <label class="profile-address-default">
+              <input type="checkbox" name="is_default">
+              <span>Set as primary address</span>
+            </label>
+            <p class="form-note" data-address-message></p>
+            <button class="btn btn-dark full" type="submit" data-address-submit>Save address</button>
+          </form>
+        </div>
+      </div>`;
+  }
+
   async function bootstrapSession(force = false) {
     if (state.sessionPromise && !force) return state.sessionPromise;
     state.access = state.access || localStorage.getItem("anaacoss_access");
@@ -392,7 +458,7 @@ const Storefront = (() => {
       return null;
     }
     try {
-      const addresses = await api("/api/auth/addresses/", { silent: options.silent });
+      const addresses = normalizeAddressList(await api("/api/auth/addresses/", { silent: options.silent }));
       state.addresses = addresses;
       const preferredAddress = addresses.find((item) => item.is_default) || addresses[0] || null;
       state.selectedAddressId = preferredAddress?.id || null;
@@ -415,32 +481,110 @@ const Storefront = (() => {
     }
   }
 
+  async function refreshAddresses(options = {}) {
+    const user = await ensureUserProfile();
+    if (!user) {
+      state.addresses = [];
+      state.selectedAddressId = null;
+      return [];
+    }
+    const addresses = normalizeAddressList(await api("/api/auth/addresses/", { silent: options.silent }));
+    state.addresses = addresses;
+    const preferredAddress = state.addresses.find((item) => item.is_default)
+      || state.addresses.find((item) => String(item.id) === String(state.selectedAddressId))
+      || state.addresses[0]
+      || null;
+    state.selectedAddressId = preferredAddress?.id || null;
+    renderSavedAddresses();
+    return state.addresses;
+  }
+
+  function fillAddressForm(form, address = null) {
+    if (!form) return;
+    const values = address || {
+      label: "",
+      full_name: state.user ? fullName(state.user) : "",
+      phone: state.user?.phone || "",
+      line1: "",
+      line2: "",
+      city: "",
+      state: "",
+      postal_code: "",
+      country: "India",
+      is_default: false,
+    };
+    ["label", "full_name", "phone", "line1", "line2", "city", "state", "postal_code", "country"].forEach((name) => {
+      const field = form.elements.namedItem(name);
+      if (field) field.value = values[name] || "";
+    });
+    const defaultField = form.elements.namedItem("is_default");
+    if (defaultField) defaultField.checked = Boolean(values.is_default);
+  }
+
   async function navigate(url, push = true) {
+    const targetUrl = new URL(url, window.location.origin).toString();
+    const token = Date.now();
+    state.navigationToken = token;
+    state.navigationController?.abort();
+    state.navigationController = new AbortController();
     await runWithPending(async () => {
       clearAuthMessage();
-      const response = await fetch(url, { headers: { "X-Requested-With": "XMLHttpRequest" } });
+      const response = await fetch(targetUrl, {
+        headers: { "X-Requested-With": "XMLHttpRequest" },
+        signal: state.navigationController.signal,
+      });
       const html = await response.text();
+      if (state.navigationToken !== token) return;
       const doc = new DOMParser().parseFromString(html, "text/html");
       const nextRoot = doc.querySelector("#page-root");
       if (!nextRoot) {
-        window.location.href = url;
+        window.location.href = targetUrl;
         return;
       }
       $("#page-root").innerHTML = nextRoot.innerHTML;
       document.title = doc.title;
-      if (push) history.pushState({}, "", url);
+      if (push) history.pushState({}, "", targetUrl);
       window.scrollTo({ top: 0, behavior: "smooth" });
       bindPage();
       updateMobileNavState();
+    }, false).catch((error) => {
+      if (error?.name === "AbortError") return;
+      throw error;
+    }).finally(() => {
+      if (state.navigationToken === token) {
+        state.navigationController = null;
+      }
     });
   }
 
   function bindNavigation() {
     if (state.handlersBound.navigation) return;
     state.handlersBound.navigation = true;
+    if (!state.handlersBound.mobileNavigation) {
+      state.handlersBound.mobileNavigation = true;
+      $$(".mobile-bottom-nav a[data-spa]").forEach((link) => {
+        link.addEventListener("click", async (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          if (link.matches("[data-auth-required]")) {
+            const user = await ensureUserProfile();
+            if (!user) {
+              openAuthModal(link, {
+                returnUrl: link.dataset.authReturnUrl || link.getAttribute("href") || currentUrl(),
+                tab: link.dataset.authTab || "login",
+              });
+              return;
+            }
+          }
+          if (normalizeNavPath(link.getAttribute("href")) === normalizeNavPath(window.location.pathname)) return;
+          navigate(link.href);
+        });
+      });
+    }
     document.addEventListener("click", async (event) => {
       const link = event.target.closest("a[data-spa]");
       if (!link || link.origin !== location.origin) return;
+      if (link.closest(".mobile-bottom-nav")) return;
       if (link.matches("[data-auth-required]")) {
         event.preventDefault();
         const user = await ensureUserProfile();
@@ -986,7 +1130,7 @@ const Storefront = (() => {
       </article>`;
   }
 
-  function dashboardHtml(user, orders = []) {
+  function dashboardHtml(user, orders = [], addresses = []) {
     const name = fullName(user);
     const firstName = user?.first_name || user?.username || "Customer";
     const orderRows = orders.length
@@ -1045,9 +1189,24 @@ const Storefront = (() => {
             <h3>Order history</h3>
             ${orderRows}
           </article>
-          <article class="dashboard-card"><h3>Saved addresses</h3><p>Use the address API to manage delivery destinations.</p></article>
+          <article class="dashboard-card dashboard-address-card">
+            <div class="dashboard-address-head">
+              <div>
+                <h3>Saved addresses</h3>
+                <p>Manage your delivery destinations.</p>
+              </div>
+              <button class="btn btn-ghost btn-small" type="button" data-address-open>
+                <i class="fa-solid fa-plus"></i>
+                <span>Add address</span>
+              </button>
+            </div>
+            <div class="dashboard-address-list" data-profile-address-list>
+              ${profileAddressCards(addresses)}
+            </div>
+          </article>
         </section>
-      </section>`;
+      </section>
+      ${profileAddressModalHtml()}`;
   }
 
   function bindReviews() {
@@ -1125,11 +1284,166 @@ const Storefront = (() => {
     const user = await ensureUserProfile();
     if (!user) return;
     try {
-      const orders = await api("/api/orders/", { silent: true });
-      root.innerHTML = dashboardHtml(user, orders.results || orders || []);
+      const [orders, addresses] = await Promise.all([
+        api("/api/orders/", { silent: true }),
+        api("/api/auth/addresses/", { silent: true }),
+      ]);
+      state.addresses = normalizeAddressList(addresses);
+      state.selectedAddressId = (state.addresses.find((item) => item.is_default) || state.addresses[0] || {}).id || null;
+      root.innerHTML = dashboardHtml(user, orders.results || orders || [], state.addresses);
     } catch {
-      root.innerHTML = dashboardHtml(user, []);
+      root.innerHTML = dashboardHtml(user, [], state.addresses);
     }
+    bindDashboardAddressModal();
+  }
+
+  function bindDashboardAddressModal() {
+    const modal = $("[data-address-modal]");
+    const form = $("[data-address-form]");
+    if (!modal || !form) return;
+
+    const message = $("[data-address-message]", modal);
+    const title = $("[data-address-modal-title]", modal);
+    const submitButton = $("[data-address-submit]", modal);
+    const closeAddressModal = () => {
+      if (message) message.textContent = "";
+      form.reset();
+      form.dataset.addressId = "";
+      form.dataset.addressMode = "create";
+      if (title) title.textContent = "Add address";
+      if (submitButton) submitButton.textContent = "Save address";
+      const country = form.elements.namedItem("country");
+      if (country && !country.value) country.value = "India";
+      closeModal(modal);
+    };
+
+    if (!state.handlersBound.dashboardAddress) {
+      state.handlersBound.dashboardAddress = true;
+      document.addEventListener("click", (event) => {
+        const openBtn = event.target.closest("[data-address-open]");
+        if (openBtn) {
+          event.preventDefault();
+          const currentModal = $("[data-address-modal]");
+          const currentForm = $("[data-address-form]");
+          const currentMessage = currentModal ? $("[data-address-message]", currentModal) : null;
+          const currentTitle = currentModal ? $("[data-address-modal-title]", currentModal) : null;
+          const currentSubmit = currentModal ? $("[data-address-submit]", currentModal) : null;
+          if (currentMessage) currentMessage.textContent = "";
+          if (currentForm) {
+            currentForm.dataset.addressId = "";
+            currentForm.dataset.addressMode = "create";
+            fillAddressForm(currentForm);
+          }
+          if (currentTitle) currentTitle.textContent = "Add address";
+          if (currentSubmit) currentSubmit.textContent = "Save address";
+          openModal(currentModal, openBtn);
+        }
+        const editBtn = event.target.closest("[data-address-edit]");
+        if (editBtn) {
+          event.preventDefault();
+          const address = state.addresses.find((item) => String(item.id) === String(editBtn.dataset.addressEdit));
+          const currentModal = $("[data-address-modal]");
+          const currentForm = $("[data-address-form]");
+          const currentMessage = currentModal ? $("[data-address-message]", currentModal) : null;
+          const currentTitle = currentModal ? $("[data-address-modal-title]", currentModal) : null;
+          const currentSubmit = currentModal ? $("[data-address-submit]", currentModal) : null;
+          if (!address || !currentForm) return;
+          if (currentMessage) currentMessage.textContent = "";
+          currentForm.dataset.addressId = String(address.id);
+          currentForm.dataset.addressMode = "edit";
+          fillAddressForm(currentForm, address);
+          if (currentTitle) currentTitle.textContent = "Edit address";
+          if (currentSubmit) currentSubmit.textContent = "Update address";
+          openModal(currentModal, editBtn);
+        }
+        const primaryBtn = event.target.closest("[data-address-primary]");
+        if (primaryBtn) {
+          event.preventDefault();
+          withLockedButton(primaryBtn, async () => {
+            const address = state.addresses.find((item) => String(item.id) === String(primaryBtn.dataset.addressPrimary));
+            if (!address) return;
+            const payload = {
+              label: address.label,
+              full_name: address.full_name,
+              phone: address.phone,
+              line1: address.line1,
+              line2: address.line2,
+              city: address.city,
+              state: address.state,
+              postal_code: address.postal_code,
+              country: address.country,
+              is_default: true,
+            };
+            await api(`/api/auth/addresses/${address.id}/`, {
+              method: "PATCH",
+              body: JSON.stringify(payload),
+            });
+            await refreshAddresses({ silent: true });
+            const list = $("[data-profile-address-list]");
+            if (list) list.innerHTML = profileAddressCards(state.addresses);
+            await updateDeliveryStrip({ silent: true });
+            toast("Primary address updated");
+          });
+        }
+        const deleteBtn = event.target.closest("[data-address-delete]");
+        if (deleteBtn) {
+          event.preventDefault();
+          withLockedButton(deleteBtn, async () => {
+            await api(`/api/auth/addresses/${deleteBtn.dataset.addressDelete}/`, { method: "DELETE" });
+            await refreshAddresses({ silent: true });
+            const list = $("[data-profile-address-list]");
+            if (list) list.innerHTML = profileAddressCards(state.addresses);
+            await updateDeliveryStrip({ silent: true });
+            toast("Address deleted");
+          });
+        }
+        const closeBtn = event.target.closest("[data-address-close]");
+        if (closeBtn) {
+          event.preventDefault();
+          const currentModal = $("[data-address-modal]");
+          const currentForm = $("[data-address-form]");
+          const currentMessage = currentModal ? $("[data-address-message]", currentModal) : null;
+          if (currentMessage) currentMessage.textContent = "";
+          currentForm?.reset();
+          const country = currentForm?.elements?.namedItem?.("country");
+          if (country && !country.value) country.value = "India";
+          closeModal(currentModal);
+        }
+      });
+    }
+
+    modal.addEventListener("click", (event) => {
+      if (event.target === modal) closeAddressModal();
+    });
+
+    if (form.dataset.bound === "true") return;
+    form.dataset.bound = "true";
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const submitter = event.submitter || form.querySelector('[type="submit"]');
+      await withLockedButton(submitter, async () => {
+        try {
+          const payload = Object.fromEntries(new FormData(form).entries());
+          delete payload.csrfmiddlewaretoken;
+          payload.is_default = form.elements.namedItem("is_default")?.checked || false;
+          const addressId = form.dataset.addressId;
+          const method = form.dataset.addressMode === "edit" && addressId ? "PATCH" : "POST";
+          const endpoint = method === "PATCH" ? `/api/auth/addresses/${addressId}/` : "/api/auth/addresses/";
+          await api(endpoint, {
+            method,
+            body: JSON.stringify(payload),
+          });
+          await refreshAddresses({ silent: true });
+          const list = $("[data-profile-address-list]");
+          if (list) list.innerHTML = profileAddressCards(state.addresses);
+          await updateDeliveryStrip({ silent: true });
+          closeAddressModal();
+          toast("Address saved");
+        } catch (error) {
+          if (message) message.textContent = flattenError(error);
+        }
+      });
+    });
   }
 
   function bindHomeHero() {
@@ -1269,3 +1583,4 @@ const Storefront = (() => {
 })();
 
 document.addEventListener("DOMContentLoaded", Storefront.init);
+

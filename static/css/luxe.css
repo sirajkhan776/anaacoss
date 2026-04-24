@@ -1075,6 +1075,97 @@ del { color: var(--muted); }
   min-width: 0;
   overflow-wrap: anywhere;
 }
+.dashboard-address-card {
+  display: grid;
+  gap: 16px;
+}
+.dashboard-address-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.dashboard-address-head h3,
+.dashboard-address-head p {
+  margin: 0;
+}
+.dashboard-address-list {
+  display: grid;
+  gap: 12px;
+}
+.profile-address-card {
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+  border: 1px solid rgba(234,223,220,.95);
+  border-radius: 18px;
+  background: rgba(255,255,255,.72);
+}
+.profile-address-card.is-default {
+  border-color: rgba(189,126,116,.34);
+  box-shadow: inset 0 0 0 1px rgba(189,126,116,.16);
+}
+.profile-address-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.profile-address-top strong {
+  font-size: 15px;
+}
+.profile-address-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(189,126,116,.12);
+  color: var(--rose-deep);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.profile-address-card p,
+.profile-address-name {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.profile-address-name {
+  color: var(--ink);
+  font-weight: 700;
+}
+.profile-address-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+.profile-address-actions .btn {
+  min-height: 36px;
+}
+.profile-address-delete {
+  border-color: rgba(163,61,61,.2);
+  color: #a33d3d;
+}
+.profile-address-modal {
+  width: min(520px, 100%);
+}
+.profile-address-form {
+  gap: 12px;
+}
+.profile-address-default {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 700;
+}
+.profile-address-default input {
+  accent-color: #d94f8b;
+}
 .dashboard-card h3,
 .dashboard-card p,
 .account-shortcut span,
@@ -1134,6 +1225,7 @@ del { color: var(--muted); }
   color: white;
   padding: 12px 18px;
   border-radius: 999px;
+  pointer-events: none;
   transition: .25s ease;
 }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
@@ -1148,6 +1240,7 @@ del { color: var(--muted); }
   color: inherit;
   opacity: 1;
   -webkit-text-fill-color: currentColor;
+  pointer-events: none;
 }
 .reveal { opacity: 1; transform: translateY(0); }
 html.reveal-ready .reveal { opacity: 0; transform: translateY(18px); transition: opacity .6s ease, transform .6s ease; }
@@ -1487,6 +1580,16 @@ html.reveal-ready .reveal.visible { opacity: 1; transform: translateY(0); }
   .suggestion-meta i {
     color: var(--rose-deep);
   }
+
+  .profile-address-card {
+    background: rgba(255,255,255,.04);
+    border-color: var(--line);
+  }
+
+  .profile-address-badge {
+    background: rgba(240,177,166,.14);
+    color: var(--rose-deep);
+  }
 }
 
 @media (max-width: 1100px) {
@@ -1702,6 +1805,13 @@ html.reveal-ready .reveal.visible { opacity: 1; transform: translateY(0); }
   .dashboard-card {
     padding: 18px;
   }
+  .dashboard-address-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .profile-address-card {
+    padding: 14px;
+  }
   .order-line {
     align-items: flex-start;
   }
@@ -1744,10 +1854,14 @@ html.reveal-ready .reveal.visible { opacity: 1; transform: translateY(0); }
     color: var(--rose-deep);
   }
   .mobile-bottom-link i { font-size: 18px; }
+  .mobile-bottom-link-badge i { font-size: 18px; }
+  .mobile-bottom-link i {
+    pointer-events: none;
+  }
   .mobile-bottom-label {
     font-size: 11px;
   }
-  .mobile-bottom-link-badge span {
+  .mobile-bottom-link-badge [data-cart-count-mobile] {
     position: absolute;
     top: 4px;
     right: calc(50% - 20px);
@@ -1760,6 +1874,7 @@ html.reveal-ready .reveal.visible { opacity: 1; transform: translateY(0); }
     display: grid;
     place-items: center;
     font-size: 11px;
+    pointer-events: none;
   }
 
   @media (prefers-color-scheme: dark) {
@@ -1781,7 +1896,7 @@ html.reveal-ready .reveal.visible { opacity: 1; transform: translateY(0); }
       color: #fff7f3;
     }
 
-    .mobile-bottom-link-badge span,
+    .mobile-bottom-link-badge [data-cart-count-mobile],
     .cart-link span {
       background: #f0b1a6;
       color: #171313;

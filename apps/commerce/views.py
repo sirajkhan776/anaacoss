@@ -40,6 +40,7 @@ def dashboard_page(request):
     ctx = base_context()
     ctx["profile_user"] = request.user if request.user.is_authenticated else None
     ctx["orders"] = request.user.orders.prefetch_related("items")[:8] if request.user.is_authenticated else []
+    ctx["addresses"] = request.user.addresses.all() if request.user.is_authenticated else []
     return render(request, "account/dashboard.html", ctx)
 
 

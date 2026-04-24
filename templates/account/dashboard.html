@@ -57,9 +57,74 @@
         <p>No orders yet.</p>
       {% endfor %}
     </article>
-    <article class="dashboard-card"><h3>Saved addresses</h3><p>Use the address API to manage delivery destinations.</p></article>
+    <article class="dashboard-card dashboard-address-card">
+      <div class="dashboard-address-head">
+        <div>
+          <h3>Saved addresses</h3>
+          <p>Manage your delivery destinations.</p>
+        </div>
+        <button class="btn btn-ghost btn-small" type="button" data-address-open>
+          <i class="fa-solid fa-plus"></i>
+          <span>Add address</span>
+        </button>
+      </div>
+      <div class="dashboard-address-list" data-profile-address-list>
+        {% for address in addresses %}
+          <article class="profile-address-card{% if address.is_default %} is-default{% endif %}">
+            <div class="profile-address-top">
+              <strong>{{ address.label }}</strong>
+              {% if address.is_default %}<span class="profile-address-badge">Primary</span>{% endif %}
+            </div>
+            <p class="profile-address-name">{{ address.full_name }}{% if address.phone %} - {{ address.phone }}{% endif %}</p>
+            <p>{{ address.line1 }}{% if address.line2 %}, {{ address.line2 }}{% endif %}, {{ address.city }}, {{ address.state }} {{ address.postal_code }}</p>
+            <div class="profile-address-actions">
+              {% if not address.is_default %}
+                <button class="btn btn-ghost btn-small" type="button" data-address-primary="{{ address.id }}">Set primary</button>
+              {% endif %}
+              <button class="btn btn-ghost btn-small" type="button" data-address-edit="{{ address.id }}">Edit</button>
+              <button class="btn btn-ghost btn-small profile-address-delete" type="button" data-address-delete="{{ address.id }}">Delete</button>
+            </div>
+          </article>
+        {% empty %}
+          <p class="location-empty">No saved addresses yet.</p>
+        {% endfor %}
+      </div>
+    </article>
   </section>
 </section>
+
+<div class="modal-shell" data-address-modal aria-hidden="true">
+  <div class="modal-card location-modal-card profile-address-modal" role="dialog" aria-modal="true" tabindex="-1">
+    <button class="icon-btn modal-close" type="button" data-address-close><i class="fa-solid fa-xmark"></i></button>
+    <div class="location-modal-head">
+      <h3 data-address-modal-title>Add address</h3>
+    </div>
+    <form class="location-modal-body profile-address-form" data-address-form data-address-mode="create">
+      {% csrf_token %}
+      <div class="form-grid">
+        <input class="lux-input" name="label" placeholder="Label (Home, Work)" required>
+        <input class="lux-input" name="full_name" placeholder="Full name" required>
+      </div>
+      <input class="lux-input" name="phone" placeholder="Phone number" required>
+      <input class="lux-input" name="line1" placeholder="Address line 1" required>
+      <input class="lux-input" name="line2" placeholder="Address line 2">
+      <div class="form-grid">
+        <input class="lux-input" name="city" placeholder="City" required>
+        <input class="lux-input" name="state" placeholder="State" required>
+      </div>
+      <div class="form-grid">
+        <input class="lux-input" name="postal_code" placeholder="Postal code" required>
+        <input class="lux-input" name="country" placeholder="Country" value="India" required>
+      </div>
+      <label class="profile-address-default">
+        <input type="checkbox" name="is_default">
+        <span>Set as primary address</span>
+      </label>
+      <p class="form-note" data-address-message></p>
+      <button class="btn btn-dark full" type="submit" data-address-submit>Save address</button>
+    </form>
+  </div>
+</div>
 {% else %}
 <section class="account-page account-page-guest">
   <article class="dashboard-card">
