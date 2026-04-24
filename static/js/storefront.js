@@ -171,6 +171,11 @@ const Storefront = (() => {
     });
   }
 
+  function syncPageChrome() {
+    const current = normalizeNavPath(window.location.pathname);
+    document.body.classList.toggle("cart-page-active", current === "/cart/");
+  }
+
   function fullName(user) {
     if (!user) return "Guest";
     const name = [user.first_name, user.last_name].filter(Boolean).join(" ").trim();
@@ -860,6 +865,7 @@ const Storefront = (() => {
       if (push) history.pushState({}, "", targetUrl);
       window.scrollTo({ top: 0, behavior: "smooth" });
       bindPage();
+      syncPageChrome();
       updateMobileNavState();
     }, false).catch((error) => {
       if (error?.name === "AbortError") return;
@@ -2301,6 +2307,7 @@ const Storefront = (() => {
     bindHomeHero();
     bindCategoryMarquee();
     bindDashboard();
+    syncPageChrome();
     updateMobileNavState();
     reveal();
   }

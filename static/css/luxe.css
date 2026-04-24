@@ -304,6 +304,9 @@ button, input, select { font: inherit; }
 .mobile-hero-dots {
   display: none;
 }
+body.cart-page-active .mobile-bottom-nav {
+  display: none !important;
+}
 .btn.is-loading,
 .icon-btn.is-loading,
 button.is-loading {
