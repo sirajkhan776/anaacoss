@@ -1,0 +1,5 @@
+<resources>
+    <color name="app_background">#FFF8F5</color>
+    <color name="progress_tint">#F05A78</color>
+    <color name="status_bar">#FFF8F5</color>
+</resources>
