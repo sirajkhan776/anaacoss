@@ -1139,6 +1139,16 @@ del { color: var(--muted); }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 .mobile-panel { display: none; }
 .mobile-bottom-nav { display: none; }
+.mobile-bottom-label {
+  display: block;
+  margin: 0;
+  line-height: 1;
+  font-size: 11px;
+  font-weight: 700;
+  color: inherit;
+  opacity: 1;
+  -webkit-text-fill-color: currentColor;
+}
 .reveal { opacity: 1; transform: translateY(0); }
 html.reveal-ready .reveal { opacity: 0; transform: translateY(18px); transition: opacity .6s ease, transform .6s ease; }
 html.reveal-ready .reveal.visible { opacity: 1; transform: translateY(0); }
@@ -1246,7 +1256,7 @@ html.reveal-ready .reveal.visible { opacity: 1; transform: translateY(0); }
   .faq-list p,
   .account-page-band span,
   .mobile-bottom-link span,
-  .mobile-bottom-link label {
+  .mobile-bottom-label {
     color: var(--muted);
   }
 
@@ -1355,7 +1365,7 @@ html.reveal-ready .reveal.visible { opacity: 1; transform: translateY(0); }
   .mobile-bottom-link,
   .mobile-bottom-link i,
   .mobile-bottom-link span,
-  .mobile-bottom-link label,
+  .mobile-bottom-label,
   .auth-tabs button,
   .location-text-option,
   .suggestion strong,
@@ -1642,12 +1652,8 @@ html.reveal-ready .reveal.visible { opacity: 1; transform: translateY(0); }
     font-weight: 700;
   }
   .mobile-bottom-link i { font-size: 18px; }
-  .mobile-bottom-link span,
-  .mobile-bottom-link label {
-    margin: 0;
-    line-height: 1;
+  .mobile-bottom-label {
     font-size: 11px;
-    font-weight: 700;
   }
   .mobile-bottom-link-badge span {
     position: absolute;
