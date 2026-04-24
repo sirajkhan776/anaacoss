@@ -133,6 +133,25 @@ const Storefront = (() => {
     });
   }
 
+  function normalizeNavPath(path) {
+    const clean = (path || "/").replace(/\/+$/, "") || "/";
+    if (clean === "/" || clean === "") return "/";
+    if (clean.startsWith("/shop")) return "/shop/";
+    if (clean.startsWith("/cart")) return "/cart/";
+    if (clean.startsWith("/dashboard")) return "/dashboard/";
+    return "/";
+  }
+
+  function updateMobileNavState() {
+    const current = normalizeNavPath(window.location.pathname);
+    $$(".mobile-bottom-nav .mobile-bottom-link").forEach((link) => {
+      const href = link.getAttribute("href") || "/";
+      const isCurrent = normalizeNavPath(href) === current;
+      if (isCurrent) link.setAttribute("aria-current", "page");
+      else link.removeAttribute("aria-current");
+    });
+  }
+
   function fullName(user) {
     if (!user) return "Guest";
     const name = [user.first_name, user.last_name].filter(Boolean).join(" ").trim();
@@ -412,6 +431,7 @@ const Storefront = (() => {
       if (push) history.pushState({}, "", url);
       window.scrollTo({ top: 0, behavior: "smooth" });
       bindPage();
+      updateMobileNavState();
     });
   }
 
@@ -1219,6 +1239,7 @@ const Storefront = (() => {
     bindHomeHero();
     bindCategoryMarquee();
     bindDashboard();
+    updateMobileNavState();
     reveal();
   }
 

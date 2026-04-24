@@ -1650,6 +1650,11 @@ html.reveal-ready .reveal.visible { opacity: 1; transform: translateY(0); }
     gap: 3px;
     font-size: 11px;
     font-weight: 700;
+    transition: background .2s ease, color .2s ease, transform .2s ease;
+  }
+  .mobile-bottom-link[aria-current="page"] {
+    background: rgba(189,126,116,.12);
+    color: var(--rose-deep);
   }
   .mobile-bottom-link i { font-size: 18px; }
   .mobile-bottom-label {
@@ -1668,5 +1673,31 @@ html.reveal-ready .reveal.visible { opacity: 1; transform: translateY(0); }
     display: grid;
     place-items: center;
     font-size: 11px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .mobile-bottom-nav {
+      background: rgba(19,15,17,.96);
+      border-top-color: rgba(255, 228, 223, .12);
+      box-shadow: 0 -10px 28px rgba(0, 0, 0, .28);
+    }
+
+    .mobile-bottom-link,
+    .mobile-bottom-link i,
+    .mobile-bottom-label {
+      color: #f8efeb;
+      -webkit-text-fill-color: currentColor;
+    }
+
+    .mobile-bottom-link[aria-current="page"] {
+      background: rgba(240,177,166,.14);
+      color: #fff7f3;
+    }
+
+    .mobile-bottom-link-badge span,
+    .cart-link span {
+      background: #f0b1a6;
+      color: #171313;
+    }
   }
 }
