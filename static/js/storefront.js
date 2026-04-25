@@ -1241,7 +1241,7 @@ const Storefront = (() => {
           <a href="/product/${product.slug}/" data-spa><h3>${product.name}</h3></a>
           <p class="product-card-copy">${product.short_description || ""}</p>
           <div class="product-card-meta">
-            <div class="rating"><i class="fa-solid fa-star"></i> ${product.rating} <span>${product.review_count}</span></div>
+            <div class="rating"><i class="fa-solid fa-star"></i> ${product.rating} <span>${product.review_count} Reviews</span></div>
             ${hasDiscount ? `<span class="product-offer-chip">Special price</span>` : ""}
           </div>
           <div class="price-stack">

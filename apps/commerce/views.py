@@ -4,6 +4,7 @@ from decimal import Decimal
 from urllib.parse import urlencode
 
 from django.conf import settings
+from django.http import FileResponse, HttpResponse
 from django.db.utils import OperationalError, ProgrammingError
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -21,7 +22,7 @@ from apps.catalog.models import Review
 
 from .models import Coupon, Order, WishlistItem
 from .serializers import CartSerializer, CouponSerializer, OrderSerializer, WishlistItemSerializer
-from .services import get_cart, place_order
+from .services import build_invoice_pdf, ensure_invoice, get_cart, place_order
 
 
 def get_user_shopping_profiles(user):
@@ -446,6 +447,28 @@ def review_order_view(request, order_id):
         }
     )
     return render(request, "commerce/review_order.html", ctx)
+
+
+@jwt_required_page
+def download_invoice_pdf(request, order_id):
+    order = request.user.orders.filter(pk=order_id).prefetch_related("items__product").first()
+    if not order:
+        return redirect("/orders/")
+    invoice = ensure_invoice(order)
+    if not invoice.pdf_file:
+        try:
+            pdf_bytes = build_invoice_pdf(invoice, request=request)
+            return HttpResponse(
+                pdf_bytes,
+                content_type="application/pdf",
+                headers={"Content-Disposition": f'attachment; filename="{invoice.invoice_number}.pdf"'},
+            )
+        except RuntimeError as exc:
+            return HttpResponse(str(exc), status=500)
+    return FileResponse(invoice.pdf_file.open("rb"), as_attachment=True, filename=f"{invoice.invoice_number}.pdf")
+
+
+invoice_pdf_view = download_invoice_pdf
 
 
 @jwt_required_page

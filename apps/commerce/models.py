@@ -173,3 +173,61 @@ class OrderItem(models.Model):
 
     def __str__(self):
         return self.product_name
+
+
+class Invoice(models.Model):
+    order = models.OneToOneField(Order, on_delete=models.CASCADE, related_name="invoice")
+    invoice_number = models.CharField(max_length=50, unique=True)
+    packet_id = models.CharField(max_length=50, blank=True, null=True)
+    invoice_date = models.DateField(auto_now_add=True)
+    order_date = models.DateField()
+    transaction_type = models.CharField(max_length=50, default="Inter-State")
+    supply_type = models.CharField(max_length=50, default="Goods")
+    place_of_supply = models.CharField(max_length=100)
+
+    customer_name = models.CharField(max_length=150)
+    billing_address = models.TextField()
+    shipping_address = models.TextField()
+    customer_type = models.CharField(max_length=50, default="Unregistered")
+
+    seller_name = models.CharField(max_length=150)
+    seller_address = models.TextField()
+    seller_gstin = models.CharField(max_length=30)
+
+    gross_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    discount_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    other_charges = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    taxable_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    cgst_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    sgst_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    igst_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    cess_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    total_amount = models.DecimalField(max_digits=10, decimal_places=2)
+
+    pdf_file = models.FileField(upload_to="invoices/", blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.invoice_number
+
+
+class InvoiceItem(models.Model):
+    invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name="items")
+    product_name = models.CharField(max_length=255)
+    sku = models.CharField(max_length=100, blank=True, null=True)
+    hsn_code = models.CharField(max_length=30, blank=True, null=True)
+    gst_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    quantity = models.PositiveIntegerField(default=1)
+    gross_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    discount_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    taxable_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    cgst_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    sgst_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    igst_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    total_amount = models.DecimalField(max_digits=10, decimal_places=2)
+
+    def __str__(self):
+        return f"{self.invoice.invoice_number} - {self.product_name}"

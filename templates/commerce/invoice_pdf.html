@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{{ invoice.invoice_number }}</title>
+  <style>
+    @page { size: A4; margin: 12mm; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 9px; color: #000; margin: 0; }
+    table { width: 100%; border-collapse: collapse; }
+    td, th { padding: 3px 4px; vertical-align: top; }
+    .invoice-page { width: 100%; }
+    .title-row td { padding: 0 0 6px 0; }
+    .title { font-size: 18px; font-weight: 700; }
+    .barcode { text-align: right; }
+    .barcode img { height: 44px; width: auto; }
+    .meta-table, .address-table, .items-table, .totals-table, .footer-table { border: 1px solid #000; }
+    .meta-table td, .meta-table th,
+    .address-table td, .address-table th,
+    .items-table td, .items-table th,
+    .totals-table td,
+    .footer-table td { border: 1px solid #000; }
+    .label { width: 23%; font-weight: 700; }
+    .value { width: 27%; }
+    .section-divider { border-top: 1px solid #000; margin: 6px 0; }
+    .section-head { font-weight: 700; font-size: 10px; }
+    .muted { color: #222; }
+    .items-table { font-size: 8px; }
+    .items-table th { text-align: left; font-weight: 700; }
+    .num { text-align: right; white-space: nowrap; }
+    .product-cell { line-height: 1.35; }
+    .product-main { font-weight: 700; }
+    .product-sub { font-size: 7px; }
+    .totals-shell { margin-top: 6px; }
+    .totals-table { width: 46%; margin-left: auto; }
+    .signature-block { height: 66px; }
+    .signature-name { font-weight: 700; padding-top: 28px; }
+    .qr-box { text-align: right; }
+    .qr-box img { width: 86px; height: 86px; }
+    .declaration { margin-top: 8px; }
+    .declaration-title { font-weight: 700; margin-bottom: 2px; }
+    .footer-note { margin-top: 8px; }
+    .brand-mark { text-align: right; font-weight: 700; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="invoice-page">
+    <table class="title-row">
+      <tr>
+        <td class="title">Tax Invoice</td>
+        <td class="barcode"><img src="{{ barcode_data_uri }}" alt="Invoice barcode"></td>
+      </tr>
+    </table>
+
+    <table class="meta-table">
+      <tr>
+        <td class="label">Invoice Number:</td>
+        <td class="value">{{ invoice.invoice_number }}</td>
+        <td class="label">PacketID:</td>
+        <td class="value">{{ invoice.packet_id|default:"-" }}</td>
+      </tr>
+      <tr>
+        <td class="label">Order Number:</td>
+        <td class="value">{{ order.id }}</td>
+        <td class="label">Invoice Date:</td>
+        <td class="value">{{ invoice.invoice_date|date:"d M Y" }}</td>
+      </tr>
+      <tr>
+        <td class="label">Nature of Transaction:</td>
+        <td class="value">{{ invoice.transaction_type }}</td>
+        <td class="label">Order Date:</td>
+        <td class="value">{{ invoice.order_date|date:"d M Y" }}</td>
+      </tr>
+      <tr>
+        <td class="label">Place of Supply:</td>
+        <td class="value">{{ invoice.place_of_supply }}</td>
+        <td class="label">Nature of Supply:</td>
+        <td class="value">{{ invoice.supply_type }}</td>
+      </tr>
+    </table>
+
+    <div class="section-divider"></div>
+
+    <table class="address-table">
+      <tr>
+        <td width="34%">
+          <div class="section-head">Bill to / Ship to:</div>
+          <div>{{ invoice.customer_name }}</div>
+          <div class="muted">{{ invoice.shipping_address }}</div>
+          <div class="muted">Customer Type: {{ invoice.customer_type }}</div>
+        </td>
+        <td width="33%">
+          <div class="section-head">Bill From:</div>
+          <div>{{ invoice.seller_name }}</div>
+          <div class="muted">{{ invoice.seller_address }}</div>
+        </td>
+        <td width="33%">
+          <div class="section-head">Ship From:</div>
+          <div>{{ invoice.seller_name }}</div>
+          <div class="muted">{{ seller_warehouse_address }}</div>
+          <div class="muted">GSTIN Number: {{ invoice.seller_gstin|default:"-" }}</div>
+        </td>
+      </tr>
+    </table>
+
+    <div class="section-divider"></div>
+
+    <table class="items-table">
+      <tr>
+        <th>Qty</th>
+        <th>Product Details</th>
+        <th class="num">Gross Amount</th>
+        <th class="num">Discount</th>
+        <th class="num">Other Charges</th>
+        <th class="num">Taxable Amount</th>
+        <th class="num">CGST</th>
+        <th class="num">SGST/UGST</th>
+        <th class="num">IGST</th>
+        <th class="num">Cess</th>
+        <th class="num">Total Amount</th>
+      </tr>
+      {% for row in invoice_item_rows %}
+        <tr>
+          <td class="num">{{ row.item.quantity }}</td>
+          <td class="product-cell">
+            <div class="product-main">{{ row.display_name }}{% if row.item.variant_name %}, {{ row.item.variant_name }}{% endif %}</div>
+            <div class="product-sub">HSN: {{ row.hsn_display }} | GST Rate: {{ row.gst_display }}</div>
+          </td>
+          <td class="num">Rs. {{ row.item.gross_amount }}</td>
+          <td class="num">Rs. {{ row.item.discount_amount }}</td>
+          <td class="num">Rs. {{ row.allocated_other_charges }}</td>
+          <td class="num">Rs. {{ row.item.taxable_amount }}</td>
+          <td class="num">Rs. {{ row.item.cgst_amount }}</td>
+          <td class="num">Rs. {{ row.item.sgst_amount }}</td>
+          <td class="num">Rs. {{ row.item.igst_amount }}</td>
+          <td class="num">Rs. 0.00</td>
+          <td class="num">Rs. {{ row.item.total_amount }}</td>
+        </tr>
+      {% endfor %}
+      <tr>
+        <th colspan="2">TOTAL</th>
+        <th class="num">Rs. {{ invoice.gross_amount }}</th>
+        <th class="num">Rs. {{ invoice.discount_amount }}</th>
+        <th class="num">Rs. {{ invoice.other_charges }}</th>
+        <th class="num">Rs. {{ invoice.taxable_amount }}</th>
+        <th class="num">Rs. {{ invoice.cgst_amount }}</th>
+        <th class="num">Rs. {{ invoice.sgst_amount }}</th>
+        <th class="num">Rs. {{ invoice.igst_amount }}</th>
+        <th class="num">Rs. {{ invoice.cess_amount }}</th>
+        <th class="num">Rs. {{ invoice.total_amount }}</th>
+      </tr>
+    </table>
+
+    <table class="footer-table totals-shell">
+      <tr>
+        <td width="58%">
+          <div>{{ invoice.seller_name }}</div>
+          <div class="signature-block"></div>
+          <div class="signature-name">Authorized Signatory</div>
+        </td>
+        <td width="42%" class="qr-box">
+          <img src="{{ qr_data_uri }}" alt="Invoice QR code"><br>
+          <span class="muted">Scan for invoice details</span>
+        </td>
+      </tr>
+    </table>
+
+    <div class="declaration">
+      <div class="declaration-title">DECLARATION</div>
+      <div>The goods sold as part of this shipment are intended for end-user consumption and are not for retail sale</div>
+    </div>
+
+    <div class="footer-note">
+      <div><strong>Registered Address:</strong> {{ seller_registered_address }}</div>
+      <div>{{ invoice_help_text }}</div>
+    </div>
+
+    <div class="brand-mark">{{ brand_logo_text }}</div>
+  </div>
+</body>
+</html>

@@ -1,9 +1,11 @@
+from datetime import timedelta
 from decimal import Decimal
 
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
-from apps.catalog.models import Brand, Category, Product, ProductImage, ProductVariant
+from apps.accounts.models import User
+from apps.catalog.models import Brand, Category, Product, ProductImage, ProductVariant, Review
 from apps.commerce.models import Coupon
 from apps.content.models import Banner, Testimonial
 
@@ -12,6 +14,56 @@ class Command(BaseCommand):
     help = "Seed the Anaacoss storefront with a large shopping-app style catalogue."
 
     def handle(self, *args, **options):
+        dummy_reviewers = [
+            {
+                "username": "ananya.review",
+                "email": "ananya.review@anaacoss.test",
+                "first_name": "Ananya",
+                "last_name": "Sharma",
+            },
+            {
+                "username": "riya.review",
+                "email": "riya.review@anaacoss.test",
+                "first_name": "Riya",
+                "last_name": "Kapoor",
+            },
+            {
+                "username": "arjun.review",
+                "email": "arjun.review@anaacoss.test",
+                "first_name": "Arjun",
+                "last_name": "Mehta",
+            },
+        ]
+        reviewer_users = []
+        for reviewer in dummy_reviewers:
+            user, created = User.objects.get_or_create(
+                username=reviewer["username"],
+                defaults={
+                    "email": reviewer["email"],
+                    "first_name": reviewer["first_name"],
+                    "last_name": reviewer["last_name"],
+                },
+            )
+            if created:
+                user.set_password("review12345")
+                user.save(update_fields=["password"])
+            reviewer_users.append(user)
+
+        review_titles = [
+            "Really liked the finish",
+            "Worth buying again",
+            "Impressed with the quality",
+            "Good everyday pick",
+            "Looks premium and feels great",
+        ]
+        review_bodies = [
+            "The texture feels smooth and comfortable. It works well in everyday use and looks polished without needing much effort.",
+            "Happy with the quality and finish. It feels premium for the price and fits nicely into my regular routine.",
+            "Packaging, feel, and overall performance are very nice. Would recommend if you want something reliable and easy to use.",
+            "A solid purchase. The formula and look are both flattering, and it performs well throughout the day.",
+            "This one surprised me in a good way. Good quality, nice payoff, and it feels like a product I can keep repurchasing.",
+        ]
+
         categories = [
             ("Makeup", "makeup", "wand-magic-sparkles", "Polished color, glow finishes, and refined complexion products."),
             ("Skincare", "skincare", "droplet", "Serums, creams, cleansers, and rituals for luminous skin."),
@@ -283,6 +335,18 @@ class Command(BaseCommand):
                 if category_slug != "beauty-tools":
                     ProductVariant.objects.create(product=product, name="Size", value="Full size", sku=f"ANNA-{product_counter:04d}-FULL", stock=18)
                     ProductVariant.objects.create(product=product, name="Size", value="Travel", sku=f"ANNA-{product_counter:04d}-TRAVEL", stock=12, price_delta=Decimal("-150"))
+
+                for review_index, reviewer in enumerate(reviewer_users):
+                    review = Review.objects.create(
+                        product=product,
+                        user=reviewer,
+                        rating=4 + ((idx + review_index) % 2),
+                        title=review_titles[(idx + review_index) % len(review_titles)],
+                        body=review_bodies[(idx + review_index) % len(review_bodies)],
+                        is_approved=True,
+                    )
+                    review.created_at = timezone.now() - timedelta(days=(idx % 11) + review_index)
+                    review.save(update_fields=["created_at"])
                 product_counter += 1
 
         Coupon.objects.update_or_create(

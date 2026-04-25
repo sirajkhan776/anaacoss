@@ -63,7 +63,10 @@
                   <span class="order-profile-pill"><i class="fa-regular fa-user"></i>{{ entry.profile_name }}</span>
                 </div>
               </div>
-              <a class="btn btn-ghost btn-small" href="{% url 'profile-details' %}" data-spa>Add Profile</a>
+              <div class="order-card-actions">
+                <a class="btn btn-ghost btn-small" href="{% url 'order-invoice' entry.order.id %}">Download Invoice</a>
+                <a class="btn btn-ghost btn-small" href="{% url 'profile-details' %}" data-spa>Add Profile</a>
+              </div>
             </div>
           </article>
         {% endfor %}
