@@ -38,14 +38,14 @@
   {% block structured_data %}{% endblock %}
   {% block extra_head %}{% endblock %}
 </head>
-<body data-user-authenticated="{% if request.user.is_authenticated %}true{% else %}false{% endif %}">
-  <div class="top-ribbon">
+<body class="{% if checkout_mode %}checkout-mode{% endif %}" data-user-authenticated="{% if request.user.is_authenticated %}true{% else %}false{% endif %}">
+  <div class="top-ribbon{% if checkout_mode %} page-chrome-hidden{% endif %}" data-default-chrome>
     <span><i class="fa-solid fa-gem"></i> Complimentary ritual kit above Rs. 4,000</span>
     <span><i class="fa-solid fa-truck-fast"></i> Free shipping above Rs. 2,500</span>
     <span><i class="fa-solid fa-leaf"></i> Cruelty-free luxury formulas</span>
   </div>
 
-  <header class="site-header" data-header>
+  <header class="site-header{% if checkout_mode %} page-chrome-hidden{% endif %}" data-header data-default-chrome>
     <div class="header-delivery-strip" data-delivery-strip hidden>
       <div class="header-delivery-copy">
         <div class="header-delivery-line">
@@ -69,7 +69,7 @@
         <a href="/contact/" data-spa>Contact</a>
       </nav>
       <div class="header-tools">
-        <div class="site-search" data-search-box>
+        <div class="site-search{% if hide_header_search %} is-hidden{% endif %}" data-search-box>
           <i class="fa-solid fa-magnifying-glass search-mark" aria-hidden="true"></i>
           <div class="site-search-field">
             <input class="site-search-input" type="search" data-search-input autocomplete="off" aria-label="Search products">
@@ -94,11 +94,28 @@
     </div>
   </header>
 
+  <div class="checkout-header{% if not checkout_mode %} page-chrome-hidden{% endif %}" data-checkout-header>
+    <div class="checkout-header-main">
+      <button type="button" class="back-btn" onclick="window.history.back()" aria-label="Go back">
+        <span aria-hidden="true">←</span>
+      </button>
+      <span class="page-title" data-checkout-page-title>{{ page_title|default:"" }}</span>
+    </div>
+    <div class="checkout-header-trail" data-checkout-header-trail>
+      {% if checkout_wallet_amount is not None %}
+        <span class="checkout-wallet-pill">
+          <i class="fa-solid fa-wallet" aria-hidden="true"></i>
+          <span>₹{{ checkout_wallet_amount }}</span>
+        </span>
+      {% endif %}
+    </div>
+  </div>
+
   <main id="page-root">
     {% block content %}{% endblock %}
   </main>
 
-  <nav class="mobile-bottom-nav" aria-label="Mobile">
+  <nav class="mobile-bottom-nav{% if checkout_mode %} page-chrome-hidden{% endif %}" aria-label="Mobile" data-default-chrome>
     <a class="mobile-bottom-link" href="/" data-spa aria-label="Home">
       <i class="fa-solid fa-house"></i>
       <span class="mobile-bottom-label">Home</span>
@@ -112,13 +129,13 @@
       <span data-cart-count-mobile hidden>0</span>
       <span class="mobile-bottom-label">Bag</span>
     </a>
-    <a class="mobile-bottom-link" href="/dashboard/" data-spa data-auth-required data-auth-return-url="/dashboard/" aria-label="My Orders">
+    <a class="mobile-bottom-link" href="/orders/" data-spa data-auth-required data-auth-return-url="/orders/" aria-label="My Orders">
       <i class="fa-solid fa-box"></i>
       <span class="mobile-bottom-label">Orders</span>
     </a>
   </nav>
 
-  <footer class="site-footer">
+  <footer class="site-footer{% if checkout_mode %} page-chrome-hidden{% endif %}" data-default-chrome>
     <div>
       <a class="brand footer-brand" href="/" data-spa><span class="brand-mark">A</span><span>Anaacoss</span></a>
       <p>High-performance cosmetics shaped for luminous, modern rituals.</p>
@@ -132,7 +149,7 @@
     <div>
       <h4>Care</h4>
       <a href="/contact/" data-spa>Contact</a>
-      <a href="/dashboard/" data-spa data-auth-required data-auth-return-url="/dashboard/">Orders</a>
+      <a href="/orders/" data-spa data-auth-required data-auth-return-url="/orders/">Orders</a>
       <a href="/about/" data-spa>Our atelier</a>
     </div>
     <div>

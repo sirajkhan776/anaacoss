@@ -10,9 +10,9 @@
 </style>
 {% endblock %}
 {% block content %}
-<section class="checkout-flow-page">
+<section class="checkout-flow-page" data-hide-header-search="true">
   <header class="checkout-flow-header">
-    <a class="checkout-flow-back" href="{% url 'dashboard' %}" data-spa aria-label="Back to dashboard">
+    <a class="checkout-flow-back" href="{% url 'my-orders' %}" data-spa aria-label="Back to orders">
       <i class="fa-solid fa-arrow-left"></i>
     </a>
     <h1>PAYMENT PENDING</h1>
@@ -36,8 +36,8 @@
       <p>{{ order.full_name }}, {{ order.address_line1 }}{% if order.address_line2 %}, {{ order.address_line2 }}{% endif %}, {{ order.city }}, {{ order.state }} {{ order.postal_code }}</p>
       <span class="checkout-selected-address-phone">Amount: Rs. {{ order.total }}</span>
     </div>
-    <p class="form-note">UPI intent payments do not confirm automatically here. Once you complete payment in your UPI app, you can verify the order later from your dashboard until a gateway callback is integrated.</p>
-    <a class="btn checkout-sticky-btn" href="{% url 'dashboard' %}" data-spa>Go to Orders</a>
+    <p class="form-note">UPI intent payments do not confirm automatically here. Once you complete payment in your UPI app, you can verify the order later from your orders page until a gateway callback is integrated.</p>
+    <a class="btn checkout-sticky-btn" href="{% url 'my-orders' %}" data-spa>Go to Orders</a>
   </section>
 </section>
 {% endblock %}

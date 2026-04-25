@@ -1,22 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Address - Anaacoss{% endblock %}
-{% block extra_head %}
-<style>
-  .top-ribbon,
-  .site-header {
-    display: none !important;
-  }
-</style>
-{% endblock %}
 {% block content %}
-<section class="checkout-flow-page checkout-address-page" data-checkout-address-page data-selected-items="{{ checkout_item_ids }}">
-  <header class="checkout-flow-header">
-    <a class="checkout-flow-back" href="{% url 'cart' %}" data-spa aria-label="Back to bag">
-      <i class="fa-solid fa-arrow-left"></i>
-    </a>
-    <h1>ADDRESS</h1>
-  </header>
-
+<section class="checkout-flow-page checkout-address-page" data-checkout-address-page data-checkout-mode="true" data-checkout-title="Address" data-hide-header-search="true" data-selected-items="{{ checkout_item_ids }}">
   <div class="checkout-progress" aria-label="Checkout progress">
     <div class="checkout-progress-step is-complete">
       <span class="checkout-progress-icon"><i class="fa-solid fa-check"></i></span>

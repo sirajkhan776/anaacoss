@@ -157,6 +157,7 @@ const Storefront = (() => {
     if (clean === "/" || clean === "") return "/";
     if (clean.startsWith("/shop")) return "/shop/";
     if (clean.startsWith("/cart")) return "/cart/";
+    if (clean.startsWith("/orders")) return "/orders/";
     if (clean.startsWith("/dashboard")) return "/dashboard/";
     return "/";
   }
@@ -175,6 +176,26 @@ const Storefront = (() => {
     const current = normalizeNavPath(window.location.pathname);
     document.body.classList.toggle("cart-page-active", current === "/cart/");
     document.body.classList.toggle("checkout-flow-active", window.location.pathname.startsWith("/checkout"));
+    const checkoutRoot = $("#page-root [data-checkout-mode='true']");
+    const inCheckoutMode = Boolean(checkoutRoot);
+    document.body.classList.toggle("checkout-mode", inCheckoutMode);
+    $$("[data-default-chrome]").forEach((node) => node.classList.toggle("page-chrome-hidden", inCheckoutMode));
+    const checkoutHeader = $("[data-checkout-header]");
+    checkoutHeader?.classList.toggle("page-chrome-hidden", !inCheckoutMode);
+    const checkoutTitle = $("[data-checkout-page-title]");
+    if (checkoutTitle) checkoutTitle.textContent = checkoutRoot?.dataset.checkoutTitle || "";
+    const checkoutTrail = $("[data-checkout-header-trail]");
+    if (checkoutTrail) {
+      const walletValue = checkoutRoot?.dataset.checkoutWallet;
+      checkoutTrail.innerHTML = walletValue !== undefined
+        ? `<span class="checkout-wallet-pill"><i class="fa-solid fa-wallet" aria-hidden="true"></i><span>₹${walletValue}</span></span>`
+        : "";
+    }
+    const search = $("[data-search-box]");
+    if (search) {
+      const shouldHideSearch = inCheckoutMode || Boolean($("#page-root [data-hide-header-search='true']"));
+      search.classList.toggle("is-hidden", shouldHideSearch);
+    }
   }
 
   function fullName(user) {
@@ -937,10 +958,20 @@ const Storefront = (() => {
       $("#page-root").innerHTML = nextRoot.innerHTML;
       document.title = doc.title;
       if (push) history.pushState({}, "", targetUrl);
-      window.scrollTo({ top: 0, behavior: "smooth" });
       bindPage();
       syncPageChrome();
       updateMobileNavState();
+      const hash = new URL(targetUrl).hash;
+      if (hash) {
+        const target = document.querySelector(hash);
+        if (target) {
+          target.scrollIntoView({ behavior: "smooth", block: "start" });
+        } else {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+      } else {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
     }, false).catch((error) => {
       if (error?.name === "AbortError") return;
       throw error;
@@ -1609,6 +1640,26 @@ const Storefront = (() => {
     if (state.handlersBound.cart) return;
     state.handlersBound.cart = true;
 
+    const cartTabs = $$("[data-cart-tab]");
+    const cartSections = $$("[data-cart-section]");
+    const setActiveCartTab = (targetId) => {
+      cartTabs.forEach((item) => item.classList.toggle("is-active", item.dataset.target === targetId));
+    };
+
+    if (cartTabs.length && cartSections.length && !window.__anaacossCartSectionObserver) {
+      const observer = new IntersectionObserver((entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        if (visible?.target?.id) setActiveCartTab(visible.target.id);
+      }, {
+        rootMargin: "-120px 0px -45% 0px",
+        threshold: [0.2, 0.35, 0.5, 0.75],
+      });
+      cartSections.forEach((section) => observer.observe(section));
+      window.__anaacossCartSectionObserver = observer;
+    }
+
     document.addEventListener("click", async (event) => {
       const remove = event.target.closest("[data-cart-remove]");
       if (remove) {
@@ -1623,8 +1674,10 @@ const Storefront = (() => {
       const tab = event.target.closest("[data-cart-tab]");
       if (tab) {
         event.preventDefault();
-        $$("[data-cart-tab]").forEach((item) => item.classList.toggle("is-active", item === tab));
-        $$("[data-cart-panel]").forEach((panel) => panel.classList.toggle("is-active", panel.dataset.cartPanel === tab.dataset.cartTab));
+        const target = document.getElementById(tab.dataset.target || "");
+        if (!target) return;
+        setActiveCartTab(target.id);
+        target.scrollIntoView({ behavior: "smooth", block: "start" });
         return;
       }
 
@@ -1845,7 +1898,7 @@ const Storefront = (() => {
           localStorage.removeItem("anaacoss_cart_selected");
           state.cartSelectedIds = new Set();
           await updateCartBadge();
-          await navigate("/dashboard/");
+          await navigate("/orders/");
         } catch (error) {
           toast(flattenError(error));
         }
@@ -2111,6 +2164,80 @@ const Storefront = (() => {
         <p>${review.body}</p>
         ${images ? `<div class="review-images">${images}</div>` : ""}
       </article>`;
+  }
+
+  function setInteractiveStars(root, value, selector, activeClass = "is-active") {
+    if (!root) return;
+    const rating = Number(value) || 0;
+    root.dataset.selectedRating = String(rating);
+    $$(selector, root).forEach((button) => {
+      const starValue = Number(button.dataset.orderReviewStar || button.dataset.reviewRating || 0);
+      const active = starValue <= rating;
+      button.classList.toggle(activeClass, active);
+      button.setAttribute("aria-pressed", String(active));
+      const icon = $("i", button);
+      if (icon) icon.className = `${active ? "fa-solid" : "fa-regular"} fa-star`;
+    });
+  }
+
+  function bindOrderReviewActions() {
+    if (document.body.dataset.orderReviewBound === "true") return;
+    document.body.dataset.orderReviewBound = "true";
+    document.addEventListener("click", (event) => {
+      const star = event.target.closest("[data-order-review-star]");
+      if (star) {
+        event.preventDefault();
+        const review = star.closest("[data-order-review]");
+        if (!review) return;
+        setInteractiveStars(review, Number(star.dataset.orderReviewStar || 0), "[data-order-review-star]");
+        return;
+      }
+
+      const link = event.target.closest("[data-review-link]");
+      if (!link || link.dataset.reviewMode !== "write") return;
+      const review = link.closest("[data-order-review]");
+      const productUrl = review?.dataset.productUrl || link.getAttribute("href") || "";
+      const selectedRating = Number(review?.dataset.selectedRating || 0);
+      const target = new URL(productUrl, window.location.origin);
+      if (selectedRating > 0) target.searchParams.set("review_rating", String(selectedRating));
+      target.hash = "reviews";
+      event.preventDefault();
+      navigate(target.toString());
+    });
+  }
+
+  function bindOrderInvoice() {
+    const button = $("[data-print-invoice]");
+    if (!button || button.dataset.bound === "true") return;
+    button.dataset.bound = "true";
+    button.addEventListener("click", () => window.print());
+  }
+
+  function bindReviewRatingPicker() {
+    const form = $("[data-review-form]");
+    if (!form) return;
+    const picker = $("[data-review-rating-picker]", form);
+    const select = $(".review-rating-select", form);
+    if (!picker || !select) return;
+
+    const apply = (value) => {
+      const rating = Number(value) || 0;
+      select.value = rating ? String(rating) : "";
+      setInteractiveStars(picker, rating, "[data-review-rating]");
+    };
+
+    if (picker.dataset.bound !== "true") {
+      picker.dataset.bound = "true";
+      picker.addEventListener("click", (event) => {
+        const star = event.target.closest("[data-review-rating]");
+        if (!star) return;
+        event.preventDefault();
+        apply(star.dataset.reviewRating);
+      });
+    }
+
+    const preset = new URLSearchParams(window.location.search).get("review_rating") || select.value;
+    apply(preset);
   }
 
   function bindReviews() {
@@ -2486,6 +2613,9 @@ const Storefront = (() => {
     bindPaymentPage();
     bindNewsletter();
     bindReviews();
+    bindReviewRatingPicker();
+    bindOrderReviewActions();
+    bindOrderInvoice();
     bindGallery();
     bindLocationModal();
     bindShareModal();

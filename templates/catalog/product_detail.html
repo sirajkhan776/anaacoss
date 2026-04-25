@@ -114,7 +114,7 @@
   </div>
 </section>
 
-<section class="section review-section">
+<section class="section review-section" id="reviews">
   <div class="section-head">
     <div>
       <p class="eyebrow">Customer reviews</p>
@@ -146,7 +146,14 @@
     <form class="review-form" data-review-form data-product-id="{{ product.id }}" enctype="multipart/form-data">
       {% csrf_token %}
       <h3>Write a customer review</h3>
-      <select class="lux-input" name="rating" required>
+      <div class="review-rating-picker" data-review-rating-picker role="radiogroup" aria-label="Select rating">
+        {% for value in "12345" %}
+          <button class="review-rating-star" type="button" data-review-rating="{{ forloop.counter }}" aria-label="Rate {{ forloop.counter }} star{% if forloop.counter > 1 %}s{% endif %}" aria-pressed="false">
+            <i class="fa-regular fa-star"></i>
+          </button>
+        {% endfor %}
+      </div>
+      <select class="lux-input review-rating-select" name="rating" required>
         <option value="">Rating</option>
         <option value="5">5 stars</option>
         <option value="4">4 stars</option>

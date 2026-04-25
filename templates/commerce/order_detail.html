@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Order Details - Anaacoss{% endblock %}
+{% block content %}
+<section class="order-detail-page" data-checkout-mode="true" data-checkout-title="Order Details" data-checkout-wallet="0" data-order-detail-page>
+  <article class="order-detail-card">
+    <div class="order-status-row">
+      <span class="order-status-icon"><i class="fa-solid fa-box"></i></span>
+      <div class="order-status-copy">
+        <strong class="order-status-text">{{ order.get_status_display }}</strong>
+        <span class="order-status-meta">Placed on {{ order.created_at|date:"d M Y, h:i A" }}</span>
+      </div>
+    </div>
+    <div class="order-detail-badges">
+      <span class="order-detail-badge">Order #{{ order.id }}</span>
+      <span class="order-detail-badge{% if order.status == 'delivered' %} is-success{% elif order.status == 'cancelled' %} is-danger{% endif %}">{{ order.get_status_display }}</span>
+      <span class="order-detail-badge">{{ order.selected_payment_method|default:order.payment_method|title }}</span>
+    </div>
+    <button class="btn btn-ghost order-invoice-btn" type="button" data-print-invoice>
+      <i class="fa-solid fa-file-invoice"></i>
+      <span>Get Invoice</span>
+    </button>
+  </article>
+
+  <section class="order-detail-grid">
+    {% for entry in order_items %}
+      <article class="order-card">
+        <a class="order-product-link" href="{{ entry.product_url }}" data-spa>
+          <div class="order-product-thumb">
+            {% if entry.image_url %}
+              <img src="{{ entry.image_url }}" alt="{{ entry.item.product_name }}">
+            {% else %}
+              <div class="image-fallback"><i class="fa-solid fa-bag-shopping"></i></div>
+            {% endif %}
+          </div>
+          <div class="order-product-copy">
+            {% if entry.brand_name %}<span class="order-brand">{{ entry.brand_name }}</span>{% endif %}
+            <strong class="order-title">{{ entry.item.product_name }}</strong>
+            <span class="order-size">Size: {{ entry.size_label }}</span>
+            <span class="order-size">Qty: {{ entry.item.quantity }}</span>
+          </div>
+          <span class="order-arrow"><i class="fa-solid fa-angle-right"></i></span>
+        </a>
+        <div class="order-review" data-order-review data-product-url="{{ entry.product_url }}" data-selected-rating="{% if entry.review %}{{ entry.review.rating }}{% else %}0{% endif %}">
+          <div class="order-review-row">
+            <span class="order-review-badge"><i class="fa-solid fa-coins"></i></span>
+            <div class="order-review-copy">
+              <div class="order-review-stars" role="radiogroup" aria-label="Rate this product">
+                {% for star in "12345" %}
+                  <button
+                    class="order-review-star{% if entry.review and forloop.counter <= entry.review.rating %} is-active{% endif %}"
+                    type="button"
+                    data-order-review-star="{{ forloop.counter }}"
+                    aria-label="Rate {{ forloop.counter }} star{% if forloop.counter > 1 %}s{% endif %}"
+                    aria-pressed="{% if entry.review and forloop.counter <= entry.review.rating %}true{% else %}false{% endif %}"
+                  >
+                    <i class="{% if entry.review and forloop.counter <= entry.review.rating %}fa-solid{% else %}fa-regular{% endif %} fa-star"></i>
+                  </button>
+                {% endfor %}
+              </div>
+              <span class="order-review-text">Rate &amp; Review to win <strong>MynCash</strong>!</span>
+            </div>
+          </div>
+          <a class="btn btn-ghost btn-small order-review-btn" href="{{ entry.product_url }}#reviews" data-spa data-review-link data-review-mode="{% if entry.review %}view{% else %}write{% endif %}">{% if entry.review %}View Review{% else %}Write Review{% endif %}</a>
+        </div>
+      </article>
+    {% endfor %}
+  </section>
+
+  <article class="order-detail-card">
+    <div class="order-detail-block">
+      <h3 class="orders-group-title">Delivery Address</h3>
+      <p class="order-review-text">{{ order.full_name }}, {{ order.address_line1 }}{% if order.address_line2 %}, {{ order.address_line2 }}{% endif %}, {{ order.city }}, {{ order.state }} {{ order.postal_code }}</p>
+      <p class="order-review-text">{{ order.phone }}</p>
+    </div>
+    <div class="order-detail-block">
+      <h3 class="orders-group-title">Payment Summary</h3>
+      <div class="order-detail-summary">
+        <div class="order-detail-summary-row"><span>Subtotal</span><strong>Rs. {{ order.subtotal }}</strong></div>
+        <div class="order-detail-summary-row"><span>Discount</span><strong>Rs. {{ order.discount }}</strong></div>
+        <div class="order-detail-summary-row"><span>Shipping</span><strong>Rs. {{ order.shipping }}</strong></div>
+        <div class="order-detail-summary-row"><span>Total</span><strong>Rs. {{ order.total }}</strong></div>
+      </div>
+    </div>
+  </article>
+</section>
+{% endblock %}

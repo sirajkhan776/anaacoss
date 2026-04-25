@@ -1,25 +1,11 @@
 {% extends "base.html" %}
 {% block title %}Your Bag - Anaacoss{% endblock %}
 {% block content %}
-<section class="cart-page" data-cart-page>
-  <section class="cart-address-bar">
-    <div class="cart-address-copy">
-      <p class="eyebrow">Deliver to</p>
-      {% if selected_address %}
-        <h2>{{ selected_address.full_name }}</h2>
-        <p>{{ selected_address.line1 }}{% if selected_address.line2 %}, {{ selected_address.line2 }}{% endif %}, {{ selected_address.city }}, {{ selected_address.state }} {{ selected_address.postal_code }}</p>
-      {% else %}
-        <h2>{{ request.user.first_name|default:request.user.username }}</h2>
-        <p>Add a delivery address to continue checkout smoothly.</p>
-      {% endif %}
-    </div>
-    <a class="btn btn-ghost btn-small" href="/checkout/" data-spa>Change</a>
-  </section>
-
+<section class="cart-page" data-cart-page data-checkout-mode="true" data-checkout-title="Bag" data-hide-header-search="true">
   <div class="cart-tabs" data-cart-tabs>
-    <button class="cart-tab is-active" type="button" data-cart-tab="items">Items</button>
-    <button class="cart-tab" type="button" data-cart-tab="offers">Coupons &amp; Bank Offers</button>
-    <button class="cart-tab" type="button" data-cart-tab="price">Price Details</button>
+    <button class="cart-tab is-active" type="button" data-cart-tab data-target="items-section">Items</button>
+    <button class="cart-tab cart-tab-long offers-tab" type="button" data-cart-tab data-target="offers-section">Coupons &amp; Bank Offers</button>
+    <button class="cart-tab" type="button" data-cart-tab data-target="price-details-section">Price Details</button>
   </div>
 
   <div class="savings-banner" data-cart-savings-banner hidden>
@@ -39,13 +25,13 @@
     </div>
   </section>
 
-  <section class="cart-panel is-active" data-cart-panel="items">
+  <section class="cart-panel is-active cart-section" id="items-section" data-cart-panel="items" data-cart-section="items-section">
     <div class="cart-card">
       <div class="cart-items" data-cart-items></div>
     </div>
   </section>
 
-  <section class="cart-panel" data-cart-panel="offers">
+  <section class="cart-panel is-active cart-section" id="offers-section" data-cart-panel="offers" data-cart-section="offers-section">
     <div class="cart-card cart-offers-card">
       <div class="cart-offers-head">
         <h3>Coupons &amp; Bank Offers</h3>
@@ -63,7 +49,7 @@
     </div>
   </section>
 
-  <section class="cart-panel" data-cart-panel="price">
+  <section class="cart-panel is-active cart-section" id="price-details-section" data-cart-panel="price" data-cart-section="price-details-section">
     <aside class="summary-card cart-summary-card">
       <h3>Price Details</h3>
       <div data-cart-summary></div>

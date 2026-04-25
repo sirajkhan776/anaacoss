@@ -1,23 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Payment - Anaacoss{% endblock %}
-{% block extra_head %}
-<style>
-  .top-ribbon,
-  .site-header,
-  .site-footer {
-    display: none !important;
-  }
-</style>
-{% endblock %}
 {% block content %}
-<section class="checkout-flow-page checkout-payment-page" data-payment-page data-selected-items="{{ checkout_item_ids }}" data-payment-total="{{ checkout_summary.total }}" data-payment-address-id="{% if selected_address %}{{ selected_address.id }}{% endif %}">
-  <header class="checkout-flow-header">
-    <a class="checkout-flow-back" href="{{ checkout_back_url }}{% if selected_address %}&address={{ selected_address.id }}{% endif %}" data-spa aria-label="Back to address">
-      <i class="fa-solid fa-arrow-left"></i>
-    </a>
-    <h1>PAYMENT</h1>
-  </header>
-
+<section class="checkout-flow-page checkout-payment-page" data-payment-page data-checkout-mode="true" data-checkout-title="Payment" data-hide-header-search="true" data-selected-items="{{ checkout_item_ids }}" data-payment-total="{{ checkout_summary.total }}" data-payment-address-id="{% if selected_address %}{{ selected_address.id }}{% endif %}">
   <div class="checkout-progress" aria-label="Checkout progress">
     <div class="checkout-progress-step is-complete">
       <span class="checkout-progress-icon"><i class="fa-solid fa-check"></i></span>
@@ -43,34 +27,6 @@
       </div>
       <a class="checkout-change-btn" href="{% url 'offers' %}" data-spa>All offers{% if coupon_count %} ({{ coupon_count }}){% endif %}</a>
     </div>
-  </section>
-
-  <section class="checkout-flow-card">
-    <div class="checkout-flow-card-head">
-      <div>
-        <p class="checkout-flow-eyebrow">Deliver to</p>
-        <h2>Selected address</h2>
-      </div>
-      <a class="checkout-change-btn" href="{{ checkout_back_url }}{% if selected_address %}&address={{ selected_address.id }}{% endif %}" data-spa>Change</a>
-    </div>
-    {% if selected_address %}
-      <article class="checkout-selected-address">
-        <div class="checkout-selected-address-top">
-          <strong>{{ selected_address.full_name }}</strong>
-          <div class="checkout-selected-address-tags">
-            {% if selected_address.is_default %}<span class="checkout-address-default">Default</span>{% endif %}
-            <span class="checkout-address-tag">{{ selected_address.label|upper }}</span>
-          </div>
-        </div>
-        <p>{{ selected_address.line1 }}{% if selected_address.line2 %}, {{ selected_address.line2 }}{% endif %}, {{ selected_address.city }}, {{ selected_address.state }} {{ selected_address.postal_code }}</p>
-        <span class="checkout-selected-address-phone">Mobile: {{ selected_address.phone }}</span>
-      </article>
-    {% else %}
-      <article class="checkout-selected-address checkout-selected-address-empty">
-        <strong>No saved address selected</strong>
-        <p>Select an address before placing the order.</p>
-      </article>
-    {% endif %}
   </section>
 
   <form class="payment-screen" id="payment-checkout-form" data-checkout-form data-payment-form>
@@ -234,27 +190,6 @@
       </div>
     </section>
 
-    <section class="checkout-flow-card">
-      <div class="checkout-flow-card-head">
-        <div>
-          <p class="checkout-flow-eyebrow">Price details</p>
-          <h2>Order summary</h2>
-        </div>
-      </div>
-      <div class="checkout-price-summary">
-        <div><span>Total MRP</span><strong>Rs. {{ checkout_summary.subtotal }}</strong></div>
-        <div><span>Discount</span><strong>Rs. {{ checkout_summary.discount }}</strong></div>
-        <div><span>Delivery Charges</span><strong>Rs. {{ checkout_summary.shipping }}</strong></div>
-        <div class="is-total"><span>Final Amount</span><strong>Rs. {{ checkout_summary.total }}</strong></div>
-      </div>
-      <p class="form-note checkout-address-note" data-checkout-address-note>
-        {% if selected_address %}
-          Delivering to {{ selected_address.full_name }} at {{ selected_address.label }}.
-        {% else %}
-          Select or add an address before placing your order.
-        {% endif %}
-      </p>
-    </section>
   </form>
 </section>
 

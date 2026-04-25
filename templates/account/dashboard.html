@@ -106,12 +106,12 @@
 
   <section class="profile-quick-grid">
     {% if profile_user %}
-      <button class="profile-quick-action profile-quick-action-button" type="button" data-section-toggle aria-expanded="false" aria-controls="profile-orders-panel">
+      <a class="profile-quick-action profile-quick-action-button" href="{% url 'my-orders' %}" data-spa>
         <i class="fa-solid fa-box-open"></i>
         <span>Orders</span>
-      </button>
+      </a>
     {% else %}
-      <button class="profile-quick-action profile-quick-action-button" type="button" data-auth-open data-auth-return-url="/dashboard/">
+      <button class="profile-quick-action profile-quick-action-button" type="button" data-auth-open data-auth-return-url="/orders/">
         <i class="fa-solid fa-box-open"></i>
         <span>Orders</span>
       </button>

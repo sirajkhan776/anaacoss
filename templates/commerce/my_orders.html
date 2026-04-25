@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}My Orders - Anaacoss{% endblock %}
+{% block content %}
+<section class="orders-page" data-checkout-mode="true" data-checkout-title="My Orders" data-checkout-wallet="0" data-orders-page>
+  {% if order_groups %}
+    {% for group in order_groups %}
+      <section class="orders-group">
+        <h2 class="orders-group-title">{{ group.title }}</h2>
+        {% for entry in group.items %}
+          <article class="order-card">
+            <div class="order-status-row">
+              <span class="order-status-icon"><i class="{{ entry.status_icon }}"></i></span>
+              <div class="order-status-copy">
+                <strong class="order-status-text{% if entry.status_tone == 'success' %} is-success{% elif entry.status_tone == 'danger' %} is-danger{% endif %}">{{ entry.status_label }}</strong>
+                <span class="order-status-meta">{{ entry.status_meta }}</span>
+              </div>
+            </div>
+
+            <a class="order-product-link" href="{% url 'my-order-detail' entry.order.id %}" data-spa>
+              <div class="order-product-thumb">
+                {% if entry.image_url %}
+                  <img src="{{ entry.image_url }}" alt="{{ entry.item.product_name }}">
+                {% else %}
+                  <div class="image-fallback"><i class="fa-solid fa-bag-shopping"></i></div>
+                {% endif %}
+              </div>
+              <div class="order-product-copy">
+                {% if entry.brand_name %}<span class="order-brand">{{ entry.brand_name }}</span>{% endif %}
+                <strong class="order-title">{{ entry.item.product_name }}</strong>
+                <span class="order-size">Size: {{ entry.size_label }}</span>
+                {% if entry.courier_name %}<span class="order-courier">{{ entry.courier_name }}</span>{% endif %}
+              </div>
+              <span class="order-arrow"><i class="fa-solid fa-angle-right"></i></span>
+            </a>
+
+            <div class="order-review" data-order-review data-product-url="{{ entry.product_url }}" data-selected-rating="{{ entry.review_stars|default:0 }}">
+              <div class="order-review-row">
+                <span class="order-review-badge"><i class="fa-solid fa-coins"></i></span>
+                <div class="order-review-copy">
+                  <div class="order-review-stars" role="radiogroup" aria-label="Rate this product">
+                    {% for star in "12345" %}
+                      <button
+                        class="order-review-star{% if forloop.counter <= entry.review_stars %} is-active{% endif %}"
+                        type="button"
+                        data-order-review-star="{{ forloop.counter }}"
+                        aria-label="Rate {{ forloop.counter }} star{% if forloop.counter > 1 %}s{% endif %}"
+                        aria-pressed="{% if forloop.counter <= entry.review_stars %}true{% else %}false{% endif %}"
+                      >
+                        <i class="{% if forloop.counter <= entry.review_stars %}fa-solid{% else %}fa-regular{% endif %} fa-star"></i>
+                      </button>
+                    {% endfor %}
+                  </div>
+                  <span class="order-review-text">Rate &amp; Review to win <strong>MynCash</strong>!</span>
+                </div>
+              </div>
+              <a class="btn btn-ghost btn-small order-review-btn" href="{{ entry.product_url }}#reviews" data-spa data-review-link data-review-mode="{% if entry.review %}view{% else %}write{% endif %}">{{ entry.review_label }}</a>
+            </div>
+
+            <div class="order-purchased-for">
+              <div class="order-purchased-copy">
+                <span>Who is this purchased for?</span>
+                <div class="order-profile-pill-row">
+                  <span class="order-profile-pill"><i class="fa-regular fa-user"></i>{{ entry.profile_name }}</span>
+                </div>
+              </div>
+              <a class="btn btn-ghost btn-small" href="{% url 'profile-details' %}" data-spa>Add Profile</a>
+            </div>
+          </article>
+        {% endfor %}
+      </section>
+    {% endfor %}
+  {% else %}
+    <div class="orders-empty">
+      <h2>No orders yet</h2>
+      <p>Your recent orders will appear here once you start shopping.</p>
+      <a class="btn btn-dark" href="/shop/" data-spa>Start shopping</a>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

@@ -1,3 +1,4 @@
+from collections import OrderedDict
 from datetime import timedelta
 from decimal import Decimal
 from urllib.parse import urlencode
@@ -15,6 +16,7 @@ from apps.accounts.forms import AccountDetailsForm, CosmeticProfileForm, Notific
 from apps.accounts.models import Profile
 from apps.catalog.models import Product, ProductVariant
 from apps.catalog.views import base_context
+from apps.catalog.models import Review
 
 from .models import Coupon, Order, WishlistItem
 from .serializers import CartSerializer, CouponSerializer, OrderSerializer, WishlistItemSerializer
@@ -76,11 +78,79 @@ PAYMENT_METHOD_LABELS = {
 }
 
 
+ORDER_GROUP_CONFIG = OrderedDict(
+    [
+        ("recent", {"title": "Recent Orders", "status": "Recent Order", "icon": "fa-solid fa-box", "tone": "neutral"}),
+        ("delivered", {"title": "Delivered", "status": "Delivered", "icon": "fa-solid fa-circle-check", "tone": "success"}),
+        ("exchanged", {"title": "Exchanged", "status": "Exchanged", "icon": "fa-solid fa-rotate", "tone": "neutral"}),
+        ("returned", {"title": "Returned", "status": "Returned", "icon": "fa-solid fa-arrow-rotate-left", "tone": "neutral"}),
+        ("cancelled", {"title": "Cancelled / Returned", "status": "Cancelled", "icon": "fa-solid fa-circle-xmark", "tone": "danger"}),
+    ]
+)
+
+
+def order_group_key(status):
+    normalized = (status or "").lower()
+    if normalized == Order.DELIVERED:
+        return "delivered"
+    if normalized == "exchanged":
+        return "exchanged"
+    if normalized == "returned":
+        return "returned"
+    if normalized == Order.CANCELLED:
+        return "cancelled"
+    return "recent"
+
+
+def build_order_groups(user):
+    groups = OrderedDict((key, {"key": key, **config, "items": []}) for key, config in ORDER_GROUP_CONFIG.items())
+    reviews = {
+        review.product_id: review
+        for review in Review.objects.filter(user=user).select_related("product")
+    }
+    orders = (
+        user.orders.order_by("-created_at")
+        .prefetch_related("items__product__brand", "items__product__images")
+    )
+    for order in orders:
+        group = groups[order_group_key(order.status)]
+        status_label = group["status"] if group["key"] != "recent" else order.get_status_display()
+        status_prefix = "Ordered on" if group["key"] == "recent" else f"{status_label} on"
+        for item in order.items.all():
+            product = item.product
+            primary_image = product.images.filter(is_primary=True).first() or product.images.first()
+            review = reviews.get(product.id)
+            group["items"].append(
+                {
+                    "order": order,
+                    "item": item,
+                    "product": product,
+                    "brand_name": product.brand.name if product.brand_id else "",
+                    "image_url": primary_image.url if primary_image else "",
+                    "status_label": status_label,
+                    "status_tone": group["tone"],
+                    "status_icon": group["icon"],
+                    "status_meta": f"{status_prefix} {order.created_at.strftime('%d %b %Y, %I:%M %p')}",
+                    "size_label": item.variant_name or "One Size",
+                    "courier_name": "",
+                    "review": review,
+                    "review_label": "View Review" if review else "Write Review",
+                    "review_stars": int(review.rating) if review else 0,
+                    "profile_name": user.first_name or user.username,
+                    "product_url": product.get_absolute_url(),
+                }
+            )
+    return [group for group in groups.values() if group["items"]]
+
+
 @jwt_required_page
 def cart_page(request):
     ctx = base_context()
     ctx["cart"] = get_cart(request)
     ctx["selected_address"] = request.user.addresses.filter(is_default=True).first() or request.user.addresses.first()
+    ctx["hide_header_search"] = True
+    ctx["checkout_mode"] = True
+    ctx["page_title"] = "Bag"
     return render(request, "commerce/cart.html", ctx)
 
 
@@ -101,6 +171,9 @@ def checkout_page(request):
     ctx["checkout_summary"] = build_checkout_summary(cart, selected_items)
     ctx["delivery_estimate"] = timezone.now().date() + timedelta(days=4)
     ctx["checkout_return_url"] = f"/checkout/?items={','.join(selected_item_ids)}"
+    ctx["hide_header_search"] = True
+    ctx["checkout_mode"] = True
+    ctx["page_title"] = "Address"
     return render(request, "commerce/checkout.html", ctx)
 
 
@@ -121,6 +194,9 @@ def payment_view(request):
     ctx["coupon_count"] = Coupon.objects.filter(is_active=True).count()
     ctx["admin_upi_id"] = settings.ADMIN_UPI_ID
     ctx["admin_upi_name"] = settings.ADMIN_NAME
+    ctx["hide_header_search"] = True
+    ctx["checkout_mode"] = True
+    ctx["page_title"] = "Payment"
     return render(request, "commerce/payment.html", ctx)
 
 
@@ -131,6 +207,7 @@ def payment_pending_page(request, order_id):
     if not order:
         return redirect("/dashboard/")
     ctx["order"] = order
+    ctx["hide_header_search"] = True
     return render(request, "commerce/payment_pending.html", ctx)
 
 
@@ -179,6 +256,57 @@ def dashboard_page(request):
     ctx["account_open"] = request.GET.get("account_open") == "1"
     ctx["settings_saved"] = request.GET.get("settings_saved") == "1"
     return render(request, "account/dashboard.html", ctx)
+
+
+@jwt_required_page
+def my_orders_view(request):
+    ctx = base_context()
+    ctx["checkout_mode"] = True
+    ctx["page_title"] = "My Orders"
+    ctx["checkout_wallet_amount"] = 0
+    ctx["order_groups"] = build_order_groups(request.user)
+    return render(request, "commerce/my_orders.html", ctx)
+
+
+@jwt_required_page
+def my_order_detail_view(request, order_id):
+    ctx = base_context()
+    order = (
+        request.user.orders.filter(pk=order_id)
+        .prefetch_related("items__product__brand", "items__product__images")
+        .first()
+    )
+    if not order:
+        return redirect("/orders/")
+    review_map = {
+        review.product_id: review
+        for review in Review.objects.filter(user=request.user, product__in=[item.product for item in order.items.all()])
+    }
+    detail_items = []
+    for item in order.items.all():
+        product = item.product
+        primary_image = product.images.filter(is_primary=True).first() or product.images.first()
+        detail_items.append(
+            {
+                "item": item,
+                "product": product,
+                "brand_name": product.brand.name if product.brand_id else "",
+                "image_url": primary_image.url if primary_image else "",
+                "size_label": item.variant_name or "One Size",
+                "review": review_map.get(product.id),
+                "product_url": product.get_absolute_url(),
+            }
+        )
+    ctx.update(
+        {
+            "checkout_mode": True,
+            "page_title": "Order Details",
+            "checkout_wallet_amount": 0,
+            "order": order,
+            "order_items": detail_items,
+        }
+    )
+    return render(request, "commerce/order_detail.html", ctx)
 
 
 @jwt_required_page
