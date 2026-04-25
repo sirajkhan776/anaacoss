@@ -21,6 +21,45 @@
     </button>
   </article>
 
+  <article class="order-detail-card">
+    <div class="order-detail-block order-tracker-block">
+      <div class="order-detail-block-head">
+        <h3 class="orders-group-title">Track order</h3>
+        <span class="order-tracker-pill">{{ order.get_status_display }}</span>
+      </div>
+      <div class="order-tracker">
+        {% for step in order_tracking_steps %}
+          <div class="order-tracker-step is-{{ step.state }}">
+            <span class="order-tracker-dot" aria-hidden="true"></span>
+            {% if not forloop.last %}<span class="order-tracker-line" aria-hidden="true"></span>{% endif %}
+            <div class="order-tracker-copy">
+              <strong>{{ step.title }}</strong>
+              <span>{{ step.subtitle }}</span>
+              {% if step.timestamp %}<small>{{ step.timestamp|date:"d M Y, h:i A" }}</small>{% endif %}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="order-detail-block order-support-block">
+      <h3 class="orders-group-title">Need help with this order?</h3>
+      <div class="order-support-actions">
+        <a class="btn btn-ghost order-support-btn" href="tel:{{ support_phone|cut:' ' }}">
+          <i class="fa-solid fa-phone"></i>
+          <span>Call Support</span>
+        </a>
+        <a class="btn btn-ghost order-support-btn" href="https://wa.me/{{ support_whatsapp|cut:' '|cut:'+' }}" target="_blank" rel="noopener">
+          <i class="fa-brands fa-whatsapp"></i>
+          <span>Chat Support</span>
+        </a>
+        <a class="btn btn-ghost order-support-btn" href="{% url 'contact' %}" data-spa>
+          <i class="fa-regular fa-life-ring"></i>
+          <span>Help Center</span>
+        </a>
+      </div>
+    </div>
+  </article>
+
   <section class="order-detail-grid">
     {% for entry in order_items %}
       <article class="order-card">
@@ -40,7 +79,7 @@
           </div>
           <span class="order-arrow"><i class="fa-solid fa-angle-right"></i></span>
         </a>
-        <div class="order-review" data-order-review data-product-url="{{ entry.product_review_url }}" data-selected-rating="{% if entry.review %}{{ entry.review.rating }}{% else %}0{% endif %}">
+        <div class="order-review" data-order-review data-product-url="{{ entry.order_review_url }}" data-selected-rating="{% if entry.review %}{{ entry.review.rating }}{% else %}0{% endif %}">
           <div class="order-review-row">
             <span class="order-review-badge"><i class="fa-solid fa-coins"></i></span>
             <div class="order-review-copy">
@@ -57,10 +96,10 @@
                   </button>
                 {% endfor %}
               </div>
-              <span class="order-review-text">Rate &amp; Review to win <strong>MynCash</strong>!</span>
+              <span class="order-review-text">Rate &amp; Review to win <strong>AnaaCossCash</strong>!</span>
             </div>
           </div>
-          <a class="btn btn-ghost btn-small order-review-btn" href="{{ entry.product_review_url }}" data-spa data-review-link data-review-mode="{% if entry.review %}view{% else %}write{% endif %}">{% if entry.review %}View Review{% else %}Write Review{% endif %}</a>
+          <a class="btn btn-ghost btn-small order-review-btn" href="{{ entry.order_review_url }}" data-spa data-review-link data-review-mode="{% if entry.review %}view{% else %}write{% endif %}">{% if entry.review %}View Review{% else %}Write Review{% endif %}</a>
         </div>
       </article>
     {% endfor %}

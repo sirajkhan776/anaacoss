@@ -156,3 +156,7 @@ EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
 ADMIN_UPI_ID = env("ADMIN_UPI_ID", "")
 ADMIN_NAME = env("ADMIN_NAME", "Anaacoss")
+SUPPORT_EMAIL = env("SUPPORT_EMAIL", "care@anaacoss.example")
+SUPPORT_PHONE = env("SUPPORT_PHONE", "+91 90000 00000")
+SUPPORT_WHATSAPP = env("SUPPORT_WHATSAPP", SUPPORT_PHONE)
+SUPPORT_STUDIO = env("SUPPORT_STUDIO", "Beauty Atelier, New Delhi")

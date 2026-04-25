@@ -17,6 +17,10 @@
         <span class="order-brand">{{ product.brand.name }}</span>
         <strong class="order-title">{{ product.name }}</strong>
         <span class="order-size">{{ product.short_description }}</span>
+        <div class="review-product-meta">
+          <span class="review-product-meta-chip"><i class="fa-solid fa-star"></i> {{ product.rating|default:"0" }}</span>
+          <span class="review-product-meta-chip">{{ product.review_count }} reviews</span>
+        </div>
       </div>
     </a>
   </article>
@@ -24,38 +28,66 @@
   <section class="review-page-shell">
     <form class="review-form review-form-page" data-review-form data-product-id="{{ product.id }}"{% if existing_review %} data-review-id="{{ existing_review.id }}"{% endif %} enctype="multipart/form-data">
       {% csrf_token %}
-      <h3>{% if existing_review %}Update your review{% else %}Write a customer review{% endif %}</h3>
-      <div class="review-rating-picker" data-review-rating-picker role="radiogroup" aria-label="Select rating">
-        {% for value in "12345" %}
-          <button class="review-rating-star" type="button" data-review-rating="{{ forloop.counter }}" aria-label="Rate {{ forloop.counter }} star{% if forloop.counter > 1 %}s{% endif %}" aria-pressed="false">
-            <i class="fa-regular fa-star"></i>
-          </button>
-        {% endfor %}
+      <div class="review-form-block review-form-intro">
+        <h3>{% if existing_review %}Update your review{% else %}Rate this product{% endif %}</h3>
+        <p>Share your genuine experience to help other shoppers choose better.</p>
       </div>
-      <select class="lux-input review-rating-select" name="rating" required>
-        <option value="">Rating</option>
-        <option value="5" {% if existing_review and existing_review.rating == 5 %}selected{% endif %}>5 stars</option>
-        <option value="4" {% if existing_review and existing_review.rating == 4 %}selected{% endif %}>4 stars</option>
-        <option value="3" {% if existing_review and existing_review.rating == 3 %}selected{% endif %}>3 stars</option>
-        <option value="2" {% if existing_review and existing_review.rating == 2 %}selected{% endif %}>2 stars</option>
-        <option value="1" {% if existing_review and existing_review.rating == 1 %}selected{% endif %}>1 star</option>
-      </select>
-      <input class="lux-input" name="title" placeholder="Review title" value="{% if existing_review %}{{ existing_review.title }}{% endif %}" required>
-      <textarea class="lux-input" name="body" rows="6" placeholder="Share your product experience" required>{% if existing_review %}{{ existing_review.body }}{% endif %}</textarea>
-      <label class="file-drop">
-        <i class="fa-solid fa-image"></i>
-        <span>Upload product review images</span>
-        <input name="images" type="file" accept="image/*" multiple>
-      </label>
-      {% if existing_review and existing_review.images.all %}
-        <div class="review-images">
-          {% for image in existing_review.images.all %}
-            <img src="{{ image.image.url }}" alt="{{ image.alt_text|default:existing_review.title }}">
+
+      <div class="review-form-block">
+        <label class="review-field-label">Your rating</label>
+        <div class="review-rating-picker" data-review-rating-picker role="radiogroup" aria-label="Select rating">
+          {% for value in "12345" %}
+            <button class="review-rating-star" type="button" data-review-rating="{{ forloop.counter }}" aria-label="Rate {{ forloop.counter }} star{% if forloop.counter > 1 %}s{% endif %}" aria-pressed="false">
+              <i class="fa-regular fa-star"></i>
+            </button>
           {% endfor %}
         </div>
-      {% endif %}
-      <button class="btn btn-dark" type="submit">{% if existing_review %}Update Review{% else %}Submit Review{% endif %}</button>
-      <p class="form-note" data-review-message></p>
+        <select class="lux-input review-rating-select" name="rating" required>
+          <option value="">Rating</option>
+          <option value="5" {% if existing_review and existing_review.rating == 5 %}selected{% endif %}>5 stars</option>
+          <option value="4" {% if existing_review and existing_review.rating == 4 %}selected{% endif %}>4 stars</option>
+          <option value="3" {% if existing_review and existing_review.rating == 3 %}selected{% endif %}>3 stars</option>
+          <option value="2" {% if existing_review and existing_review.rating == 2 %}selected{% endif %}>2 stars</option>
+          <option value="1" {% if existing_review and existing_review.rating == 1 %}selected{% endif %}>1 star</option>
+        </select>
+      </div>
+
+      <div class="review-form-block">
+        <label class="review-field-label" for="review-title">Review title</label>
+        <input id="review-title" class="lux-input" name="title" placeholder="What did you like most?" value="{% if existing_review %}{{ existing_review.title }}{% endif %}" required>
+      </div>
+
+      <div class="review-form-block">
+        <label class="review-field-label" for="review-body">Tell us more</label>
+        <textarea id="review-body" class="lux-input review-textarea" name="body" rows="6" placeholder="Fit, quality, texture, packaging, finish, results..." required>{% if existing_review %}{{ existing_review.body }}{% endif %}</textarea>
+      </div>
+
+      <div class="review-form-block">
+        <label class="review-field-label">Add photos</label>
+        <label class="file-drop">
+          <i class="fa-solid fa-image"></i>
+          <span>Upload product review images</span>
+          <input name="images" type="file" accept="image/*" multiple data-review-image-input>
+        </label>
+        <div class="review-image-preview" data-review-image-preview hidden></div>
+        {% if existing_review and existing_review.images.all %}
+          <div class="review-images review-images-existing">
+            {% for image in existing_review.images.all %}
+              <img src="{{ image.image.url }}" alt="{{ image.alt_text|default:existing_review.title }}">
+            {% endfor %}
+          </div>
+        {% endif %}
+      </div>
+
+      <div class="review-form-tip">
+        <i class="fa-regular fa-lightbulb"></i>
+        <span>Helpful reviews mention shade, texture, skin type, staying power, and packaging.</span>
+      </div>
+
+      <div class="review-submit-bar">
+        <p class="form-note" data-review-message></p>
+        <button class="btn btn-dark review-submit-btn" type="submit">{% if existing_review %}Update Review{% else %}Submit Review{% endif %}</button>
+      </div>
     </form>
   </section>
 </section>

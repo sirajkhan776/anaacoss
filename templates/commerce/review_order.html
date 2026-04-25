@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Review & Earn AnaaCossCash - Anaacoss{% endblock %}
+{% block content %}
+<section class="order-review-page" data-checkout-mode="true" data-checkout-title="Review & Earn AnaaCossCash" data-order-review-page>
+  <form class="order-review-form" method="post" enctype="multipart/form-data" data-order-review-form>
+    {% csrf_token %}
+
+    <article class="order-review-product-card">
+      <div class="order-review-product-media">
+        {% if product_image_url %}
+          <img src="{{ product_image_url }}" alt="{{ product.name }}">
+        {% else %}
+          <div class="image-fallback"><i class="fa-solid fa-bag-shopping"></i></div>
+        {% endif %}
+      </div>
+      <div class="order-review-product-copy">
+        <strong class="order-brand">{{ product.brand.name }}</strong>
+        <span class="order-title">{{ product.name }}</span>
+        <div class="order-review-rating-picker" role="radiogroup" aria-label="Select rating" data-order-review-rating-picker>
+          {% for value, label in review_rating_labels.items %}
+            <button class="order-review-rating-star{% if existing_review and existing_review.rating >= value %} is-active{% endif %}" type="button" data-review-rating-choice="{{ value }}" aria-label="{{ label }}" aria-pressed="{% if existing_review and existing_review.rating >= value %}true{% else %}false{% endif %}">
+              <i class="{% if existing_review and existing_review.rating >= value %}fa-solid{% else %}fa-regular{% endif %} fa-star"></i>
+            </button>
+          {% endfor %}
+        </div>
+        <p class="order-review-rating-label" data-order-review-rating-label>{{ existing_rating_label }}</p>
+        <input type="hidden" name="rating" value="{% if existing_review %}{{ existing_review.rating }}{% endif %}" data-order-review-rating-input>
+      </div>
+    </article>
+
+    <div class="order-review-reward-banner">
+      <i class="fa-solid fa-coins"></i>
+      <span>Add &amp; Win AnaaCossCash up to 5000*</span>
+    </div>
+
+    <article class="order-review-panel">
+      <h3>Photos &amp; Video</h3>
+      <p>Capture and add your product experiences!</p>
+      <div class="order-review-upload-grid">
+        <label class="order-review-upload-tile">
+          <input type="file" name="photos" accept="image/*" multiple data-order-review-photos>
+          <i class="fa-regular fa-image"></i>
+          <strong>Add photos</strong>
+          <span>Up to 4</span>
+        </label>
+        <label class="order-review-upload-tile">
+          <input type="file" name="video" accept="video/*" data-order-review-video>
+          <i class="fa-solid fa-circle-play"></i>
+          <strong>Add a video</strong>
+          <span>1 min | 200 mb</span>
+        </label>
+      </div>
+      <div class="order-review-media-preview" data-order-review-media-preview hidden></div>
+      {% if existing_review and existing_review.images.all %}
+        <div class="review-images review-images-existing">
+          {% for image in existing_review.images.all %}
+            <img src="{{ image.image.url }}" alt="{{ image.alt_text|default:existing_review.title }}">
+          {% endfor %}
+        </div>
+      {% endif %}
+      {% if existing_review and existing_review.video %}
+        <div class="order-review-existing-video">
+          <video src="{{ existing_review.video.url }}" controls playsinline></video>
+        </div>
+      {% endif %}
+    </article>
+
+    <div class="order-review-reward-banner">
+      <i class="fa-solid fa-coins"></i>
+      <span>Write &amp; Win AnaaCossCash up to 2000*</span>
+    </div>
+
+    <article class="order-review-panel">
+      <h3>Write a Review</h3>
+      <textarea class="lux-input order-review-textarea" name="review_text" placeholder="Add description about the product" data-order-review-text required>{% if existing_review %}{{ existing_review.body }}{% endif %}</textarea>
+    </article>
+
+    <p class="order-review-help-text">Help other buyers by sharing your thoughts on fit, quality, material, colour or comfort. Avoid delivery/packaging details.</p>
+
+    {% if review_errors %}
+      <div class="order-review-errors">
+        {% for error in review_errors %}
+          <p>{{ error }}</p>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <div class="order-review-submit-bar">
+      <button class="btn order-review-submit-btn" type="submit" data-order-review-submit disabled>Submit <span aria-hidden="true">→</span></button>
+    </div>
+  </form>
+</section>
+{% endblock %}

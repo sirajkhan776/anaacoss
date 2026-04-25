@@ -33,7 +33,7 @@
               <span class="order-arrow"><i class="fa-solid fa-angle-right"></i></span>
             </a>
 
-            <div class="order-review" data-order-review data-product-url="{{ entry.product_review_url }}" data-selected-rating="{{ entry.review_stars|default:0 }}">
+            <div class="order-review" data-order-review data-product-url="{{ entry.order_review_url }}" data-selected-rating="{{ entry.review_stars|default:0 }}">
               <div class="order-review-row">
                 <span class="order-review-badge"><i class="fa-solid fa-coins"></i></span>
                 <div class="order-review-copy">
@@ -50,10 +50,10 @@
                       </button>
                     {% endfor %}
                   </div>
-                  <span class="order-review-text">Rate &amp; Review to win <strong>MynCash</strong>!</span>
+                  <span class="order-review-text">Rate &amp; Review to win <strong>AnaaCossCash</strong>!</span>
                 </div>
               </div>
-              <a class="btn btn-ghost btn-small order-review-btn" href="{{ entry.product_review_url }}" data-spa data-review-link data-review-mode="{% if entry.review %}view{% else %}write{% endif %}">{{ entry.review_label }}</a>
+              <a class="btn btn-ghost btn-small order-review-btn" href="{{ entry.order_review_url }}" data-spa data-review-link data-review-mode="{% if entry.review %}view{% else %}write{% endif %}">{{ entry.review_label }}</a>
             </div>
 
             <div class="order-purchased-for">

@@ -79,6 +79,24 @@ PAYMENT_METHOD_LABELS = {
 }
 
 
+ORDER_TRACK_STEPS = [
+    ("pending", "Order placed", "We have received your order"),
+    ("paid", "Confirmed", "Payment verified and order confirmed"),
+    ("processing", "Packed", "Your items are being packed"),
+    ("shipped", "Shipped", "Your order is on the way"),
+    ("delivered", "Delivered", "Package delivered successfully"),
+]
+
+
+REVIEW_RATING_LABELS = {
+    1: "Poor",
+    2: "Okay",
+    3: "Good",
+    4: "Liked It!",
+    5: "Loved It!",
+}
+
+
 ORDER_GROUP_CONFIG = OrderedDict(
     [
         ("recent", {"title": "Recent Orders", "status": "Recent Order", "icon": "fa-solid fa-box", "tone": "neutral"}),
@@ -101,6 +119,46 @@ def order_group_key(status):
     if normalized == Order.CANCELLED:
         return "cancelled"
     return "recent"
+
+
+def build_order_tracking(order):
+    status_rank = {
+        Order.PENDING: 0,
+        Order.PAID: 1,
+        Order.PROCESSING: 2,
+        Order.SHIPPED: 3,
+        Order.DELIVERED: 4,
+    }
+    current_rank = status_rank.get(order.status, 0)
+    steps = []
+    for index, (key, title, subtitle) in enumerate(ORDER_TRACK_STEPS):
+        state = "upcoming"
+        if order.status == Order.CANCELLED:
+            state = "completed" if index == 0 else "upcoming"
+        elif index < current_rank:
+            state = "completed"
+        elif index == current_rank:
+            state = "current"
+        steps.append(
+            {
+                "key": key,
+                "title": title,
+                "subtitle": subtitle,
+                "state": state,
+                "timestamp": order.created_at if index == 0 else None,
+            }
+        )
+    if order.status == Order.CANCELLED:
+        steps.append(
+            {
+                "key": "cancelled",
+                "title": "Cancelled",
+                "subtitle": "This order was cancelled",
+                "state": "current",
+                "timestamp": None,
+            }
+        )
+    return steps
 
 
 def build_order_groups(user):
@@ -140,6 +198,7 @@ def build_order_groups(user):
                     "profile_name": user.first_name or user.username,
                     "product_url": product.get_absolute_url(),
                     "product_review_url": reverse("product-review", kwargs={"slug": product.slug}),
+                    "order_review_url": f"{reverse('order-review', kwargs={'order_id': order.id})}?item={item.id}",
                 }
             )
     return [group for group in groups.values() if group["items"]]
@@ -298,6 +357,7 @@ def my_order_detail_view(request, order_id):
                 "review": review_map.get(product.id),
                 "product_url": product.get_absolute_url(),
                 "product_review_url": reverse("product-review", kwargs={"slug": product.slug}),
+                "order_review_url": f"{reverse('order-review', kwargs={'order_id': order.id})}?item={item.id}",
             }
         )
     ctx.update(
@@ -307,9 +367,85 @@ def my_order_detail_view(request, order_id):
             "checkout_wallet_amount": 0,
             "order": order,
             "order_items": detail_items,
+            "order_tracking_steps": build_order_tracking(order),
         }
     )
     return render(request, "commerce/order_detail.html", ctx)
+
+
+@jwt_required_page
+def review_order_view(request, order_id):
+    ctx = base_context()
+    order = (
+        request.user.orders.filter(pk=order_id)
+        .prefetch_related("items__product__brand", "items__product__images")
+        .first()
+    )
+    if not order:
+        return redirect("/orders/")
+
+    item_id = request.GET.get("item")
+    items = order.items.select_related("product", "product__brand")
+    order_item = items.filter(pk=item_id).first() if item_id else None
+    order_item = order_item or items.first()
+    if not order_item:
+        return redirect(f"/orders/{order.id}/")
+
+    product = order_item.product
+    primary_image = product.images.filter(is_primary=True).first() or product.images.first()
+    existing_review = Review.objects.filter(user=request.user, product=product).prefetch_related("images").first()
+
+    if request.method == "POST":
+        rating_raw = str(request.POST.get("rating", "")).strip()
+        review_text = str(request.POST.get("review_text", "")).strip()
+        photo_files = request.FILES.getlist("photos")
+        video_file = request.FILES.get("video")
+        errors = []
+        try:
+            rating = int(rating_raw)
+        except (TypeError, ValueError):
+            rating = 0
+        if rating not in REVIEW_RATING_LABELS:
+            errors.append("Select a valid rating.")
+        if not review_text:
+            errors.append("Write a review before submitting.")
+        if len(photo_files) > 4:
+            errors.append("You can upload up to 4 photos only.")
+        if video_file and video_file.size > 200 * 1024 * 1024:
+            errors.append("Video size must be 200 MB or less.")
+
+        if not errors:
+            review = existing_review or Review(product=product, user=request.user)
+            review.order = order
+            review.order_item = order_item
+            review.rating = rating
+            review.title = f"{REVIEW_RATING_LABELS[rating]} - {product.name[:110]}"
+            review.body = review_text
+            if video_file:
+                review.video = video_file
+            review.save()
+            if photo_files:
+                review.images.all().delete()
+                for image in photo_files[:4]:
+                    review.images.create(image=image, alt_text=f"{product.name} review image")
+            return redirect("/orders/")
+
+        ctx["review_errors"] = errors
+
+    ctx.update(
+        {
+            "checkout_mode": True,
+            "page_title": "Review & Earn AnaaCossCash",
+            "order": order,
+            "order_item": order_item,
+            "product": product,
+            "product_image_url": primary_image.url if primary_image else "",
+            "existing_review": existing_review,
+            "review_rating_labels": REVIEW_RATING_LABELS,
+            "existing_rating_label": REVIEW_RATING_LABELS.get(existing_review.rating) if existing_review else "",
+        }
+    )
+    return render(request, "commerce/review_order.html", ctx)
 
 
 @jwt_required_page

@@ -208,9 +208,12 @@ class ProductImage(TimeStampedModel):
 class Review(TimeStampedModel):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="reviews")
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="reviews")
+    order = models.ForeignKey("commerce.Order", null=True, blank=True, on_delete=models.SET_NULL, related_name="reviews")
+    order_item = models.ForeignKey("commerce.OrderItem", null=True, blank=True, on_delete=models.SET_NULL, related_name="reviews")
     rating = models.PositiveSmallIntegerField(validators=[MinValueValidator(1), MaxValueValidator(5)])
     title = models.CharField(max_length=140)
     body = models.TextField()
+    video = models.FileField(upload_to="reviews/videos/", blank=True)
     is_approved = models.BooleanField(default=True)
 
     class Meta:

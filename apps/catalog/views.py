@@ -1,5 +1,6 @@
 from django.db.models import Q
 from django.db.models.functions import Lower
+from django.conf import settings
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 from rest_framework import permissions, viewsets
@@ -16,6 +17,10 @@ from .serializers import BrandSerializer, CategorySerializer, ProductCardSeriali
 def base_context():
     return {
         "categories": Category.objects.filter(parent__isnull=True),
+        "support_email": settings.SUPPORT_EMAIL,
+        "support_phone": settings.SUPPORT_PHONE,
+        "support_whatsapp": settings.SUPPORT_WHATSAPP,
+        "support_studio": settings.SUPPORT_STUDIO,
     }
 
 

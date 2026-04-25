@@ -2239,6 +2239,207 @@ const Storefront = (() => {
     apply(preset);
   }
 
+  function bindReviewImagePreview() {
+    const form = $("[data-review-form]");
+    if (!form) return;
+    const input = $("[data-review-image-input]", form);
+    const preview = $("[data-review-image-preview]", form);
+    if (!input || !preview || input.dataset.bound === "true") return;
+    input.dataset.bound = "true";
+    let selectedFiles = [];
+
+    const renderPreview = () => {
+      (preview._objectUrls || []).forEach((url) => URL.revokeObjectURL(url));
+      const files = selectedFiles.filter((file) => file.type.startsWith("image/"));
+      if (!files.length) {
+        preview._objectUrls = [];
+        preview.innerHTML = "";
+        preview.hidden = true;
+        return;
+      }
+      const urls = files.map((file) => URL.createObjectURL(file));
+      preview._objectUrls = urls;
+      preview.hidden = false;
+      preview.innerHTML = files.map((file, index) => `
+        <div class="review-image-preview-card">
+          <img src="${urls[index]}" alt="Selected review image ${index + 1}">
+          <button class="review-image-preview-remove" type="button" data-review-remove-image="${index}" aria-label="Remove selected image">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+          <span class="review-image-preview-badge">New</span>
+        </div>
+      `).join("");
+    };
+
+    const syncInputFiles = () => {
+      const transfer = new DataTransfer();
+      selectedFiles.forEach((file) => transfer.items.add(file));
+      input.files = transfer.files;
+    };
+
+    input.addEventListener("change", () => {
+      selectedFiles = [...(input.files || [])].filter((file) => file.type.startsWith("image/"));
+      syncInputFiles();
+      renderPreview();
+    });
+
+    preview.addEventListener("click", (event) => {
+      const remove = event.target.closest("[data-review-remove-image]");
+      if (!remove) return;
+      event.preventDefault();
+      const index = Number(remove.dataset.reviewRemoveImage);
+      if (Number.isNaN(index)) return;
+      selectedFiles.splice(index, 1);
+      syncInputFiles();
+      renderPreview();
+    });
+  }
+
+  function bindOrderReviewPage() {
+    const page = $("[data-order-review-page]");
+    const form = $("[data-order-review-form]", page || document);
+    if (!page || !form || form.dataset.bound === "true") return;
+    form.dataset.bound = "true";
+
+    const ratingInput = $("[data-order-review-rating-input]", form);
+    const ratingLabel = $("[data-order-review-rating-label]", form);
+    const textInput = $("[data-order-review-text]", form);
+    const submit = $("[data-order-review-submit]", form);
+    const photoInput = $("[data-order-review-photos]", form);
+    const videoInput = $("[data-order-review-video]", form);
+    const preview = $("[data-order-review-media-preview]", form);
+    const ratingLabels = {
+      1: "Poor",
+      2: "Okay",
+      3: "Good",
+      4: "Liked It!",
+      5: "Loved It!",
+    };
+    let photoFiles = [...(photoInput?.files || [])];
+    let videoFile = videoInput?.files?.[0] || null;
+
+    const syncFiles = () => {
+      if (photoInput) {
+        const photoTransfer = new DataTransfer();
+        photoFiles.forEach((file) => photoTransfer.items.add(file));
+        photoInput.files = photoTransfer.files;
+      }
+      if (videoInput) {
+        const videoTransfer = new DataTransfer();
+        if (videoFile) videoTransfer.items.add(videoFile);
+        videoInput.files = videoTransfer.files;
+      }
+    };
+
+    const validateSubmit = () => {
+      const enabled = Number(ratingInput?.value || 0) > 0 && Boolean(textInput?.value.trim());
+      if (submit) submit.disabled = !enabled;
+    };
+
+    const renderMediaPreview = () => {
+      if (!preview) return;
+      (preview._objectUrls || []).forEach((url) => URL.revokeObjectURL(url));
+      const urls = [];
+      const cards = [];
+      photoFiles.slice(0, 4).forEach((file, index) => {
+        const url = URL.createObjectURL(file);
+        urls.push(url);
+        cards.push(`
+          <div class="order-review-media-tile">
+            <img src="${url}" alt="Selected photo ${index + 1}">
+            <button class="review-image-preview-remove" type="button" data-order-review-remove-photo="${index}" aria-label="Remove selected photo">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+            <span class="order-review-media-badge">Photo</span>
+          </div>
+        `);
+      });
+      if (videoFile) {
+        const url = URL.createObjectURL(videoFile);
+        urls.push(url);
+        cards.push(`
+          <div class="order-review-media-tile">
+            <video src="${url}" muted playsinline></video>
+            <button class="review-image-preview-remove" type="button" data-order-review-remove-video aria-label="Remove selected video">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+            <span class="order-review-media-badge">Video</span>
+          </div>
+        `);
+      }
+      preview._objectUrls = urls;
+      preview.hidden = cards.length === 0;
+      preview.innerHTML = cards.join("");
+    };
+
+    const setRating = (value) => {
+      const rating = Number(value) || 0;
+      if (ratingInput) ratingInput.value = rating ? String(rating) : "";
+      if (ratingLabel) ratingLabel.textContent = ratingLabels[rating] || "";
+      $$("[data-review-rating-choice]", form).forEach((button) => {
+        const current = Number(button.dataset.reviewRatingChoice || 0);
+        const active = current <= rating;
+        button.classList.toggle("is-active", active);
+        button.setAttribute("aria-pressed", String(active));
+        const icon = $("i", button);
+        if (icon) icon.className = `${active ? "fa-solid" : "fa-regular"} fa-star`;
+      });
+      validateSubmit();
+    };
+
+    $$("[data-review-rating-choice]", form).forEach((button) => {
+      button.addEventListener("click", (event) => {
+        event.preventDefault();
+        setRating(button.dataset.reviewRatingChoice);
+      });
+    });
+
+    textInput?.addEventListener("input", validateSubmit);
+
+    photoInput?.addEventListener("change", () => {
+      photoFiles = [...(photoInput.files || [])].filter((file) => file.type.startsWith("image/")).slice(0, 4);
+      syncFiles();
+      renderMediaPreview();
+    });
+
+    videoInput?.addEventListener("change", () => {
+      const candidate = videoInput.files?.[0] || null;
+      if (candidate && candidate.size > 200 * 1024 * 1024) {
+        toast("Video size must be 200 MB or less");
+        videoFile = null;
+      } else {
+        videoFile = candidate;
+      }
+      syncFiles();
+      renderMediaPreview();
+    });
+
+    preview?.addEventListener("click", (event) => {
+      const removePhoto = event.target.closest("[data-order-review-remove-photo]");
+      if (removePhoto) {
+        event.preventDefault();
+        const index = Number(removePhoto.dataset.orderReviewRemovePhoto);
+        if (!Number.isNaN(index)) {
+          photoFiles.splice(index, 1);
+          syncFiles();
+          renderMediaPreview();
+        }
+        return;
+      }
+      const removeVideo = event.target.closest("[data-order-review-remove-video]");
+      if (removeVideo) {
+        event.preventDefault();
+        videoFile = null;
+        syncFiles();
+        renderMediaPreview();
+      }
+    });
+
+    setRating(ratingInput?.value || 0);
+    validateSubmit();
+    renderMediaPreview();
+  }
+
   function bindReviews() {
     const form = $("[data-review-form]");
     if (!form) return;
@@ -2618,6 +2819,8 @@ const Storefront = (() => {
     bindNewsletter();
     bindReviews();
     bindReviewRatingPicker();
+    bindReviewImagePreview();
+    bindOrderReviewPage();
     bindOrderReviewActions();
     bindOrderInvoice();
     bindGallery();
