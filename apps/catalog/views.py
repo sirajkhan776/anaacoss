@@ -1,6 +1,7 @@
 from django.db.models import Q
 from django.db.models.functions import Lower
 from django.shortcuts import get_object_or_404, render
+from django.urls import reverse
 from rest_framework import permissions, viewsets
 from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
@@ -93,6 +94,28 @@ def product_detail(request, slug):
     ctx = base_context()
     ctx.update({"product": product, "related_products": related})
     return render(request, "catalog/product_detail.html", ctx)
+
+
+def product_review_page(request, slug):
+    product = get_object_or_404(
+        Product.objects.visible().select_related("brand", "category").prefetch_related("images", "reviews__images", "reviews__user"),
+        slug=slug,
+    )
+    existing_review = None
+    if request.user.is_authenticated:
+        existing_review = product.reviews.filter(user=request.user).prefetch_related("images").first()
+    ctx = base_context()
+    ctx.update(
+        {
+            "product": product,
+            "existing_review": existing_review,
+            "checkout_mode": True,
+            "hide_header_search": True,
+            "page_title": "Write Review" if not existing_review else "Your Review",
+            "product_page_url": reverse("storefront-product-detail", kwargs={"slug": product.slug}),
+        }
+    )
+    return render(request, "catalog/review_form.html", ctx)
 
 
 class CategoryViewSet(viewsets.ReadOnlyModelViewSet):

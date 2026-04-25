@@ -6,6 +6,7 @@ from urllib.parse import urlencode
 from django.conf import settings
 from django.db.utils import OperationalError, ProgrammingError
 from django.shortcuts import redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
@@ -138,6 +139,7 @@ def build_order_groups(user):
                     "review_stars": int(review.rating) if review else 0,
                     "profile_name": user.first_name or user.username,
                     "product_url": product.get_absolute_url(),
+                    "product_review_url": reverse("product-review", kwargs={"slug": product.slug}),
                 }
             )
     return [group for group in groups.values() if group["items"]]
@@ -295,6 +297,7 @@ def my_order_detail_view(request, order_id):
                 "size_label": item.variant_name or "One Size",
                 "review": review_map.get(product.id),
                 "product_url": product.get_absolute_url(),
+                "product_review_url": reverse("product-review", kwargs={"slug": product.slug}),
             }
         )
     ctx.update(

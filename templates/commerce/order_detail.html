@@ -40,7 +40,7 @@
           </div>
           <span class="order-arrow"><i class="fa-solid fa-angle-right"></i></span>
         </a>
-        <div class="order-review" data-order-review data-product-url="{{ entry.product_url }}" data-selected-rating="{% if entry.review %}{{ entry.review.rating }}{% else %}0{% endif %}">
+        <div class="order-review" data-order-review data-product-url="{{ entry.product_review_url }}" data-selected-rating="{% if entry.review %}{{ entry.review.rating }}{% else %}0{% endif %}">
           <div class="order-review-row">
             <span class="order-review-badge"><i class="fa-solid fa-coins"></i></span>
             <div class="order-review-copy">
@@ -60,7 +60,7 @@
               <span class="order-review-text">Rate &amp; Review to win <strong>MynCash</strong>!</span>
             </div>
           </div>
-          <a class="btn btn-ghost btn-small order-review-btn" href="{{ entry.product_url }}#reviews" data-spa data-review-link data-review-mode="{% if entry.review %}view{% else %}write{% endif %}">{% if entry.review %}View Review{% else %}Write Review{% endif %}</a>
+          <a class="btn btn-ghost btn-small order-review-btn" href="{{ entry.product_review_url }}" data-spa data-review-link data-review-mode="{% if entry.review %}view{% else %}write{% endif %}">{% if entry.review %}View Review{% else %}Write Review{% endif %}</a>
         </div>
       </article>
     {% endfor %}

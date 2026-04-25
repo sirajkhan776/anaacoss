@@ -120,57 +120,28 @@
       <p class="eyebrow">Customer reviews</p>
       <h2>Rated by real customers</h2>
     </div>
+    <a class="btn btn-ghost btn-small" href="{% url 'product-review' product.slug %}" data-spa data-auth-required data-auth-return-url="{% url 'product-review' product.slug %}">Write Review</a>
   </div>
-  <div class="review-layout">
-    <div class="review-list" data-review-list>
-      {% for review in product.reviews.all %}
-        {% if review.is_approved %}
-          <article class="review-card">
-            <div class="review-head">
-              <strong>{{ review.user.get_full_name|default:review.user.username }}</strong>
-              <span>{% for i in "12345" %}{% if forloop.counter <= review.rating %}★{% else %}☆{% endif %}{% endfor %}</span>
-            </div>
-            <h3>{{ review.title }}</h3>
-            <p>{{ review.body }}</p>
-            <div class="review-images">
-              {% for image in review.images.all %}
-                <img src="{{ image.image.url }}" alt="{{ image.alt_text|default:review.title }}">
-              {% endfor %}
-            </div>
-          </article>
-        {% endif %}
-      {% empty %}
-        <p class="empty-state">No customer reviews yet. Be the first customer to review this product.</p>
-      {% endfor %}
-    </div>
-    <form class="review-form" data-review-form data-product-id="{{ product.id }}" enctype="multipart/form-data">
-      {% csrf_token %}
-      <h3>Write a customer review</h3>
-      <div class="review-rating-picker" data-review-rating-picker role="radiogroup" aria-label="Select rating">
-        {% for value in "12345" %}
-          <button class="review-rating-star" type="button" data-review-rating="{{ forloop.counter }}" aria-label="Rate {{ forloop.counter }} star{% if forloop.counter > 1 %}s{% endif %}" aria-pressed="false">
-            <i class="fa-regular fa-star"></i>
-          </button>
-        {% endfor %}
-      </div>
-      <select class="lux-input review-rating-select" name="rating" required>
-        <option value="">Rating</option>
-        <option value="5">5 stars</option>
-        <option value="4">4 stars</option>
-        <option value="3">3 stars</option>
-        <option value="2">2 stars</option>
-        <option value="1">1 star</option>
-      </select>
-      <input class="lux-input" name="title" placeholder="Review title" required>
-      <textarea class="lux-input" name="body" rows="5" placeholder="Share your product experience" required></textarea>
-      <label class="file-drop">
-        <i class="fa-solid fa-image"></i>
-        <span>Upload product review images</span>
-        <input name="images" type="file" accept="image/*" multiple>
-      </label>
-      <button class="btn btn-dark" type="submit">Submit review</button>
-      <p class="form-note" data-review-message></p>
-    </form>
+  <div class="review-list" data-review-list>
+    {% for review in product.reviews.all %}
+      {% if review.is_approved %}
+        <article class="review-card">
+          <div class="review-head">
+            <strong>{{ review.user.get_full_name|default:review.user.username }}</strong>
+            <span>{% for i in "12345" %}{% if forloop.counter <= review.rating %}★{% else %}☆{% endif %}{% endfor %}</span>
+          </div>
+          <h3>{{ review.title }}</h3>
+          <p>{{ review.body }}</p>
+          <div class="review-images">
+            {% for image in review.images.all %}
+              <img src="{{ image.image.url }}" alt="{{ image.alt_text|default:review.title }}">
+            {% endfor %}
+          </div>
+        </article>
+      {% endif %}
+    {% empty %}
+      <p class="empty-state">No customer reviews yet. Be the first customer to review this product.</p>
+    {% endfor %}
   </div>
 </section>
 

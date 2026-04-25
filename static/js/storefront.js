@@ -2196,11 +2196,10 @@ const Storefront = (() => {
       const link = event.target.closest("[data-review-link]");
       if (!link || link.dataset.reviewMode !== "write") return;
       const review = link.closest("[data-order-review]");
-      const productUrl = review?.dataset.productUrl || link.getAttribute("href") || "";
+      const productUrl = link.getAttribute("href") || review?.dataset.productUrl || "";
       const selectedRating = Number(review?.dataset.selectedRating || 0);
       const target = new URL(productUrl, window.location.origin);
       if (selectedRating > 0) target.searchParams.set("review_rating", String(selectedRating));
-      target.hash = "reviews";
       event.preventDefault();
       navigate(target.toString());
     });
@@ -2254,14 +2253,19 @@ const Storefront = (() => {
       }
       const payload = new FormData(form);
       payload.set("product", form.dataset.productId);
+      const reviewId = form.dataset.reviewId;
       await withLockedButton(submitter, async () => {
         try {
-          const review = await api("/api/reviews/", { method: "POST", body: payload });
-          const list = $("[data-review-list]");
-          if (list) list.insertAdjacentHTML("afterbegin", reviewHtml(review));
-          form.reset();
-          $("[data-review-message]").textContent = "Review submitted.";
-          toast("Review submitted");
+          const review = await api(reviewId ? `/api/reviews/${reviewId}/` : "/api/reviews/", {
+            method: reviewId ? "PATCH" : "POST",
+            body: payload,
+          });
+          form.dataset.reviewId = String(review.id);
+          const message = $("[data-review-message]");
+          if (message) message.textContent = reviewId ? "Review updated." : "Review submitted.";
+          const submitButton = form.querySelector('[type="submit"]');
+          if (submitButton) submitButton.textContent = "Update Review";
+          toast(reviewId ? "Review updated" : "Review submitted");
         } catch (error) {
           $("[data-review-message]").textContent = flattenError(error);
         }
