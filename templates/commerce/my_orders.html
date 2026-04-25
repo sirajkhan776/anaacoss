@@ -28,6 +28,8 @@
                 {% if entry.brand_name %}<span class="order-brand">{{ entry.brand_name }}</span>{% endif %}
                 <strong class="order-title">{{ entry.item.product_name }}</strong>
                 <span class="order-size">Size: {{ entry.size_label }}</span>
+                {% if entry.secondary_label %}<span class="order-size">{{ entry.secondary_label }}</span>{% endif %}
+                <span class="order-size">{{ entry.item_count }} item{{ entry.item_count|pluralize }} | Rs. {{ entry.order_total }}</span>
                 {% if entry.courier_name %}<span class="order-courier">{{ entry.courier_name }}</span>{% endif %}
               </div>
               <span class="order-arrow"><i class="fa-solid fa-angle-right"></i></span>

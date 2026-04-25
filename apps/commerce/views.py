@@ -176,32 +176,45 @@ def build_order_groups(user):
         group = groups[order_group_key(order.status)]
         status_label = group["status"] if group["key"] != "recent" else order.get_status_display()
         status_prefix = "Ordered on" if group["key"] == "recent" else f"{status_label} on"
-        for item in order.items.all():
-            product = item.product
-            primary_image = product.images.filter(is_primary=True).first() or product.images.first()
-            review = reviews.get(product.id)
-            group["items"].append(
-                {
-                    "order": order,
-                    "item": item,
-                    "product": product,
-                    "brand_name": product.brand.name if product.brand_id else "",
-                    "image_url": primary_image.url if primary_image else "",
-                    "status_label": status_label,
-                    "status_tone": group["tone"],
-                    "status_icon": group["icon"],
-                    "status_meta": f"{status_prefix} {order.created_at.strftime('%d %b %Y, %I:%M %p')}",
-                    "size_label": item.variant_name or "One Size",
-                    "courier_name": "",
-                    "review": review,
-                    "review_label": "View Review" if review else "Write Review",
-                    "review_stars": int(review.rating) if review else 0,
-                    "profile_name": user.first_name or user.username,
-                    "product_url": product.get_absolute_url(),
-                    "product_review_url": reverse("product-review", kwargs={"slug": product.slug}),
-                    "order_review_url": f"{reverse('order-review', kwargs={'order_id': order.id})}?item={item.id}",
-                }
-            )
+        first_item = order.items.first()
+        if not first_item:
+            continue
+        product = first_item.product
+        primary_image = product.images.filter(is_primary=True).first() or product.images.first()
+        review = reviews.get(product.id)
+        total_items = order.items.count()
+        extra_items = max(0, total_items - 1)
+        item_labels = [item.product_name for item in order.items.all()[:3]]
+        secondary_label = ""
+        if extra_items:
+            secondary_label = f"+{extra_items} more item{'s' if extra_items > 1 else ''}"
+        elif total_items > 1:
+            secondary_label = ", ".join(item_labels[1:])
+        group["items"].append(
+            {
+                "order": order,
+                "item": first_item,
+                "product": product,
+                "brand_name": product.brand.name if product.brand_id else "",
+                "image_url": primary_image.url if primary_image else "",
+                "status_label": status_label,
+                "status_tone": group["tone"],
+                "status_icon": group["icon"],
+                "status_meta": f"{status_prefix} {order.created_at.strftime('%d %b %Y, %I:%M %p')}",
+                "size_label": first_item.variant_name or "One Size",
+                "courier_name": "",
+                "review": review,
+                "review_label": "View Review" if review else "Write Review",
+                "review_stars": int(review.rating) if review else 0,
+                "profile_name": user.first_name or user.username,
+                "product_url": product.get_absolute_url(),
+                "product_review_url": reverse("product-review", kwargs={"slug": product.slug}),
+                "order_review_url": f"{reverse('order-review', kwargs={'order_id': order.id})}?item={first_item.id}",
+                "item_count": total_items,
+                "secondary_label": secondary_label,
+                "order_total": order.total,
+            }
+        )
     return [group for group in groups.values() if group["items"]]
 
 
