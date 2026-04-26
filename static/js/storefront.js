@@ -1339,7 +1339,11 @@ const Storefront = (() => {
         event.stopPropagation();
         await withLockedButton(wish, async () => {
           try {
-            const data = await api("/api/wishlist/toggle/", { method: "POST", body: JSON.stringify({ product_id: wish.dataset.wishlist }) });
+            const data = await api("/api/wishlist/toggle/", {
+              method: "POST",
+              body: JSON.stringify({ product_id: wish.dataset.wishlist }),
+              silent: true,
+            });
             const productId = String(wish.dataset.wishlist || "");
             if (data.wishlisted) state.wishlistProductIds.add(productId);
             else state.wishlistProductIds.delete(productId);
