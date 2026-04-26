@@ -1428,6 +1428,7 @@ h3 { font-size: 24px; }
   --product-accent-soft: rgba(142,79,73,.12);
   --product-accent-strong: rgba(142,79,73,.18);
   --product-accent-text: #8e4f49;
+  position: relative;
   border-radius: 26px;
   overflow: hidden;
   background: linear-gradient(180deg, rgba(255,255,255,.96), rgba(255,250,246,.94));
@@ -1542,6 +1543,15 @@ h3 { font-size: 24px; }
 }
 .quick-actions button i {
   font-size: 14px;
+}
+.quick-actions button.is-active,
+.quick-actions button[aria-pressed="true"],
+.icon-btn[data-wishlist].is-active,
+.icon-btn[data-wishlist][aria-pressed="true"] {
+  color: #ff3f6c;
+  background: #fff0f4;
+  border-color: rgba(255, 63, 108, .28);
+  box-shadow: 0 12px 24px rgba(255, 63, 108, .16);
 }
 .product-overlay-actions {
   pointer-events: auto;

@@ -15,10 +15,12 @@
       <span class="order-detail-badge{% if order.status == 'delivered' %} is-success{% elif order.status == 'cancelled' %} is-danger{% endif %}">{{ order.get_status_display }}</span>
       <span class="order-detail-badge">{{ order.selected_payment_method|default:order.payment_method|title }}</span>
     </div>
-    <a class="btn btn-ghost order-invoice-btn" href="{% url 'order-invoice' order.id %}">
-      <i class="fa-solid fa-file-invoice"></i>
-      <span>Get Invoice</span>
-    </a>
+    {% if order.status == 'delivered' %}
+      <a class="btn btn-ghost order-invoice-btn" href="{% url 'order-invoice' order.id %}">
+        <i class="fa-solid fa-file-invoice"></i>
+        <span>Get Invoice</span>
+      </a>
+    {% endif %}
   </article>
 
   <article class="order-detail-card">

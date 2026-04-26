@@ -7,6 +7,7 @@ const Storefront = (() => {
     user: null,
     addresses: [],
     selectedAddressId: null,
+    wishlistProductIds: new Set(),
     cart: null,
     cartSelectedIds: new Set(JSON.parse(localStorage.getItem("anaacoss_cart_selected") || "[]")),
     pendingRequests: 0,
@@ -149,6 +150,24 @@ const Storefront = (() => {
     counts.forEach((count) => {
       count.textContent = value;
       count.hidden = value < 1;
+    });
+  }
+
+  function setWishlistButtonState(button, active) {
+    if (!button) return;
+    const isActive = Boolean(active);
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+    const icon = $("i", button);
+    if (icon) {
+      icon.className = `${isActive ? "fa-solid" : "fa-regular"} fa-heart`;
+    }
+  }
+
+  function syncWishlistButtons(root = document) {
+    $$("[data-wishlist]", root).forEach((button) => {
+      const productId = String(button.dataset.wishlist || "");
+      setWishlistButtonState(button, state.wishlistProductIds.has(productId));
     });
   }
 
@@ -555,11 +574,13 @@ const Storefront = (() => {
       if (page === 1) {
         grid.innerHTML = results.length ? results.map((product) => productCardHtml(product)).join("") : `<p class="empty-state">No products match these filters.</p>`;
         state.homeFeed.loadedIds = new Set(results.map((product) => String(product.id)));
+        syncWishlistButtons(grid);
       } else {
         const fresh = results.filter((product) => !state.homeFeed.loadedIds.has(String(product.id)));
         if (fresh.length) {
           grid.insertAdjacentHTML("beforeend", fresh.map((product) => productCardHtml(product)).join(""));
           fresh.forEach((product) => state.homeFeed.loadedIds.add(String(product.id)));
+          syncWishlistButtons(grid);
         }
       }
       state.homeFeed.page = page;
@@ -824,15 +845,21 @@ const Storefront = (() => {
     const counts = $$("[data-wishlist-count], [data-wishlist-count-mobile]");
     if (!counts.length) return 0;
     if (!state.access && !state.user && !state.isAuthenticated) {
+      state.wishlistProductIds = new Set();
       setCountBadge(counts, 0);
+      syncWishlistButtons();
       return 0;
     }
     try {
       const wishlist = await api("/api/wishlist/", { silent: options.silent });
+      state.wishlistProductIds = new Set((wishlist || []).map((item) => String(item.product?.id || "")));
       setCountBadge(counts, wishlist.length || 0);
+      syncWishlistButtons();
       return wishlist.length || 0;
     } catch {
+      state.wishlistProductIds = new Set();
       setCountBadge(counts, 0);
+      syncWishlistButtons();
       return 0;
     }
   }
@@ -1225,19 +1252,19 @@ const Storefront = (() => {
   function productCardHtml(product) {
     const image = product.primary_image || "";
     const hasDiscount = Boolean(product.discount_price);
-    return `
-      <article class="product-card" data-product-id="${product.id}" data-category="${product.category?.slug || ""}">
-        <a class="product-media" href="/product/${product.slug}/" data-spa>
-          ${image ? `<img src="${image}" alt="${product.name}" loading="lazy">` : `<div class="image-fallback"><i class="fa-solid fa-spa"></i></div>`}
-          ${product.badge ? `<span class="badge product-badge-label">${product.badge}</span>` : ""}
+      return `
+        <article class="product-card" data-product-id="${product.id}" data-category="${product.category?.slug || ""}">
+          <a class="product-media" href="/product/${product.slug}/" data-spa>
+            ${image ? `<img src="${image}" alt="${product.name}" loading="lazy">` : `<div class="image-fallback"><i class="fa-solid fa-spa"></i></div>`}
+            ${product.badge ? `<span class="badge product-badge-label">${product.badge}</span>` : ""}
+            ${product.discount_percent ? `<span class="product-discount-badge">${product.discount_percent}% OFF</span>` : ""}
+          </a>
           <div class="quick-actions product-overlay-actions">
-            <button type="button" data-wishlist="${product.id}" aria-label="Wishlist"><i class="fa-regular fa-heart"></i></button>
+            <button type="button" data-wishlist="${product.id}" aria-label="Wishlist" aria-pressed="false"><i class="fa-regular fa-heart"></i></button>
             <button type="button" data-share-product data-share-title="${product.name}" data-share-text="Check out ${product.name} on Anaacoss." data-share-url="/product/${product.slug}/" aria-label="Share"><i class="fa-solid fa-share-nodes"></i></button>
           </div>
-          ${product.discount_percent ? `<span class="product-discount-badge">${product.discount_percent}% OFF</span>` : ""}
-        </a>
-        <div class="product-info">
-          <p class="product-brand">${product.brand?.name || ""}</p>
+          <div class="product-info">
+            <p class="product-brand">${product.brand?.name || ""}</p>
           <a href="/product/${product.slug}/" data-spa><h3>${product.name}</h3></a>
           <p class="product-card-copy">${product.short_description || ""}</p>
           <div class="product-card-meta">
@@ -1309,9 +1336,14 @@ const Storefront = (() => {
       const wish = event.target.closest("[data-wishlist]");
       if (wish) {
         event.preventDefault();
+        event.stopPropagation();
         await withLockedButton(wish, async () => {
           try {
             const data = await api("/api/wishlist/toggle/", { method: "POST", body: JSON.stringify({ product_id: wish.dataset.wishlist }) });
+            const productId = String(wish.dataset.wishlist || "");
+            if (data.wishlisted) state.wishlistProductIds.add(productId);
+            else state.wishlistProductIds.delete(productId);
+            $$(`[data-wishlist="${productId}"]`).forEach((button) => setWishlistButtonState(button, data.wishlisted));
             setCountBadge($$("[data-wishlist-count], [data-wishlist-count-mobile]"), data.count || 0);
             toast(data.wishlisted ? "Saved to wishlist" : "Removed from wishlist");
           } catch {
@@ -1544,6 +1576,7 @@ const Storefront = (() => {
         const data = await api(`/api/products/?${params.toString()}`);
         const products = data.results || data;
         $("[data-product-grid]").innerHTML = products.map(productCardHtml).join("") || `<p>No products found.</p>`;
+        syncWishlistButtons($("[data-product-grid]"));
         $("[data-result-count]").textContent = `${products.length} products`;
       });
     });
@@ -1637,28 +1670,40 @@ const Storefront = (() => {
     updateCartBadge({ silent: true });
     updateWishlistBadge({ silent: true });
     updateDeliveryStrip({ silent: true });
-    if (state.handlersBound.cart) return;
-    state.handlersBound.cart = true;
-
-    const cartTabs = $$("[data-cart-tab]");
-    const cartSections = $$("[data-cart-section]");
-    const setActiveCartTab = (targetId) => {
-      cartTabs.forEach((item) => item.classList.toggle("is-active", item.dataset.target === targetId));
+    window.__anaacossSyncCartSections = () => {
+      const cartTabs = $$("[data-cart-tab]");
+      const cartSections = $$("[data-cart-section]");
+      if (!cartTabs.length || !cartSections.length || !$("[data-cart-page]")) return;
+      const setActiveCartTab = (targetId) => {
+        cartTabs.forEach((item) => item.classList.toggle("is-active", item.dataset.target === targetId));
+      };
+      const checkoutHeader = $("[data-checkout-header]");
+      const tabs = $("[data-cart-tabs]");
+      const headerHeight = checkoutHeader?.offsetHeight || 56;
+      const tabsHeight = tabs?.offsetHeight || 50;
+      const offset = headerHeight + tabsHeight + 18;
+      let activeSection = cartSections[0];
+      cartSections.forEach((section) => {
+        const rect = section.getBoundingClientRect();
+        if (rect.top - offset <= 0) activeSection = section;
+      });
+      if (activeSection?.id) setActiveCartTab(activeSection.id);
     };
 
-    if (cartTabs.length && cartSections.length && !window.__anaacossCartSectionObserver) {
-      const observer = new IntersectionObserver((entries) => {
-        const visible = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-        if (visible?.target?.id) setActiveCartTab(visible.target.id);
-      }, {
-        rootMargin: "-120px 0px -45% 0px",
-        threshold: [0.2, 0.35, 0.5, 0.75],
-      });
-      cartSections.forEach((section) => observer.observe(section));
-      window.__anaacossCartSectionObserver = observer;
+    if (!window.__anaacossCartSectionScrollBound) {
+      const handleCartSectionScroll = () => {
+        if (typeof window.__anaacossSyncCartSections === "function") {
+          window.__anaacossSyncCartSections();
+        }
+      };
+      window.addEventListener("scroll", handleCartSectionScroll, { passive: true });
+      window.addEventListener("resize", handleCartSectionScroll);
+      window.__anaacossCartSectionScrollBound = true;
     }
+    window.__anaacossSyncCartSections();
+
+    if (state.handlersBound.cart) return;
+    state.handlersBound.cart = true;
 
     document.addEventListener("click", async (event) => {
       const remove = event.target.closest("[data-cart-remove]");
@@ -1676,8 +1721,13 @@ const Storefront = (() => {
         event.preventDefault();
         const target = document.getElementById(tab.dataset.target || "");
         if (!target) return;
-        setActiveCartTab(target.id);
-        target.scrollIntoView({ behavior: "smooth", block: "start" });
+        $$("[data-cart-tab]").forEach((item) => item.classList.toggle("is-active", item.dataset.target === target.id));
+        const checkoutHeader = $("[data-checkout-header]");
+        const tabs = $("[data-cart-tabs]");
+        const headerHeight = checkoutHeader?.offsetHeight || 56;
+        const tabsHeight = tabs?.offsetHeight || 50;
+        const targetTop = window.scrollY + target.getBoundingClientRect().top - (headerHeight + tabsHeight + 18);
+        window.scrollTo({ top: Math.max(0, targetTop), behavior: "smooth" });
         return;
       }
 

@@ -467,6 +467,8 @@ def download_invoice_pdf(request, order_id):
     order = request.user.orders.filter(pk=order_id).prefetch_related("items__product").first()
     if not order:
         return redirect("/orders/")
+    if order.status != Order.DELIVERED:
+        return redirect(f"/orders/{order.id}/")
     invoice = ensure_invoice(order)
     if not invoice.pdf_file:
         try:
