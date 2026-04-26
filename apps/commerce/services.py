@@ -1,4 +1,3 @@
-import base64
 from decimal import Decimal, ROUND_HALF_UP
 from io import BytesIO
 
@@ -6,7 +5,6 @@ from django.conf import settings
 from django.core.files.base import ContentFile
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
-from django.template.loader import render_to_string
 
 from .models import Cart, Coupon, Invoice, InvoiceItem, Order, OrderItem
 
@@ -153,111 +151,188 @@ def ensure_invoice(order):
 
 def build_invoice_pdf(invoice, request=None):
     try:
-        from xhtml2pdf import pisa
+        import qrcode
+        from reportlab.graphics.barcode import code128
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.units import mm
+        from reportlab.lib.utils import ImageReader, simpleSplit
+        from reportlab.pdfgen import canvas
     except ImportError as exc:
-        raise RuntimeError("xhtml2pdf is required for invoice PDF generation") from exc
+        raise RuntimeError("reportlab and qrcode are required for invoice PDF generation") from exc
 
-    context = build_invoice_context(invoice, request=request)
-    html = render_to_string("commerce/invoice_pdf.html", context)
+    order = invoice.order
+    items = list(invoice.items.all())
+    page_width, page_height = A4
+    margin = 12 * mm
+    content_width = page_width - (margin * 2)
     output = BytesIO()
-    result = pisa.CreatePDF(src=html, dest=output, encoding="utf-8")
-    if result.err:
-        raise RuntimeError("Invoice PDF generation failed")
+    pdf = canvas.Canvas(output, pagesize=A4)
+    pdf.setTitle(invoice.invoice_number)
+
+    def draw_text(x, y, text, size=9, bold=False):
+      pdf.setFont("Helvetica-Bold" if bold else "Helvetica", size)
+      pdf.drawString(x, y, str(text or ""))
+
+    def draw_right_text(x, y, text, size=9, bold=False):
+      pdf.setFont("Helvetica-Bold" if bold else "Helvetica", size)
+      pdf.drawRightString(x, y, str(text or ""))
+
+    def draw_box(x, y_top, width, height):
+      pdf.rect(x, y_top - height, width, height, stroke=1, fill=0)
+
+    def draw_cell_text(x, y_top, width, height, text, size=8, bold=False, right=False):
+      lines = simpleSplit(str(text or ""), "Helvetica-Bold" if bold else "Helvetica", size, max(width - 6, 20))
+      for index, line in enumerate(lines[:3]):
+        line_y = y_top - 11 - (index * (size + 2))
+        if right:
+          draw_right_text(x + width - 3, line_y, line, size=size, bold=bold)
+        else:
+          draw_text(x + 3, line_y, line, size=size, bold=bold)
+
+    y = page_height - margin
+    draw_text(margin, y, "Tax Invoice", size=18, bold=True)
+
+    barcode = code128.Code128(invoice.invoice_number, barHeight=13 * mm, barWidth=0.42)
+    barcode_x = page_width - margin - 60 * mm
+    barcode_y = y - 11
+    barcode.drawOn(pdf, barcode_x, barcode_y)
+
+    y -= 20
+    row_h = 16
+    col_widths = [content_width * 0.23, content_width * 0.27, content_width * 0.23, content_width * 0.27]
+    meta_rows = [
+      ("Invoice Number:", invoice.invoice_number, "PacketID:", invoice.packet_id or "-"),
+      ("Order Number:", order.id, "Invoice Date:", invoice.invoice_date.strftime("%d %b %Y")),
+      ("Nature of Transaction:", invoice.transaction_type, "Order Date:", invoice.order_date.strftime("%d %b %Y")),
+      ("Place of Supply:", invoice.place_of_supply, "Nature of Supply:", invoice.supply_type),
+    ]
+    table_x = margin
+    table_y = y
+    for row in meta_rows:
+      x = table_x
+      for index, cell in enumerate(row):
+        draw_box(x, table_y, col_widths[index], row_h)
+        draw_cell_text(x, table_y, col_widths[index], row_h, cell, size=8, bold=index % 2 == 0)
+        x += col_widths[index]
+      table_y -= row_h
+    y = table_y - 6
+
+    pdf.line(margin, y, page_width - margin, y)
+    y -= 6
+    address_heights = 68
+    address_widths = [content_width * 0.34, content_width * 0.33, content_width * 0.33]
+    address_blocks = [
+      ("Bill to / Ship to:", [invoice.customer_name, invoice.shipping_address, f"Customer Type: {invoice.customer_type}"]),
+      ("Bill From:", [invoice.seller_name, invoice.seller_address]),
+      ("Ship From:", [invoice.seller_name, settings.SELLER_WAREHOUSE_ADDRESS, f"GSTIN Number: {invoice.seller_gstin or '-'}"]),
+    ]
+    x = margin
+    for index, block in enumerate(address_blocks):
+      draw_box(x, y, address_widths[index], address_heights)
+      draw_cell_text(x, y, address_widths[index], address_heights, block[0], size=8, bold=True)
+      text_y = y - 18
+      for line in block[1]:
+        for wrapped_index, wrapped in enumerate(simpleSplit(str(line or ""), "Helvetica", 8, address_widths[index] - 6)[:4]):
+          draw_text(x + 3, text_y, wrapped, size=8)
+          text_y -= 10
+      x += address_widths[index]
+    y -= address_heights + 6
+
+    pdf.line(margin, y, page_width - margin, y)
+    y -= 6
+    item_col_widths = [content_width * 0.05, content_width * 0.22, content_width * 0.11, content_width * 0.08, content_width * 0.08, content_width * 0.11, content_width * 0.08, content_width * 0.08, content_width * 0.08, content_width * 0.05, content_width * 0.14]
+    item_headers = ["Qty", "Product Details", "Gross Amount", "Discount", "Other Charges", "Taxable Amount", "CGST", "SGST/UGST", "IGST", "Cess", "Total Amount"]
+    table_y = y
+    x = margin
+    header_h = 18
+    for index, header in enumerate(item_headers):
+      draw_box(x, table_y, item_col_widths[index], header_h)
+      draw_cell_text(x, table_y, item_col_widths[index], header_h, header, size=7, bold=True, right=index not in {1})
+      x += item_col_widths[index]
+    table_y -= header_h
+
+    other_charges_remaining = quantize_money(invoice.other_charges)
+    for idx, item in enumerate(items, start=1):
+      allocated_other = Decimal("0.00")
+      if invoice.other_charges:
+        if idx == len(items):
+          allocated_other = other_charges_remaining
+        else:
+          allocated_other = quantize_money(invoice.other_charges * item.taxable_amount / invoice.taxable_amount) if invoice.taxable_amount else Decimal("0.00")
+          other_charges_remaining = quantize_money(other_charges_remaining - allocated_other)
+      row_values = [
+        item.quantity,
+        f"{item.sku or '-'} - {item.product_name}{', ' + item.order_item.variant_name if getattr(item, 'order_item', None) and item.order_item.variant_name else ''}\nHSN: {item.hsn_code or '-'} | GST Rate: {item.gst_rate}%",
+        f"Rs. {item.gross_amount}",
+        f"Rs. {item.discount_amount}",
+        f"Rs. {allocated_other}",
+        f"Rs. {item.taxable_amount}",
+        f"Rs. {item.cgst_amount}",
+        f"Rs. {item.sgst_amount}",
+        f"Rs. {item.igst_amount}",
+        "Rs. 0.00",
+        f"Rs. {item.total_amount}",
+      ]
+      row_h = 32
+      x = margin
+      for col_index, value in enumerate(row_values):
+        draw_box(x, table_y, item_col_widths[col_index], row_h)
+        draw_cell_text(x, table_y, item_col_widths[col_index], row_h, value, size=7, bold=False, right=col_index not in {1})
+        x += item_col_widths[col_index]
+      table_y -= row_h
+
+    total_values = ["", "TOTAL", f"Rs. {invoice.gross_amount}", f"Rs. {invoice.discount_amount}", f"Rs. {invoice.other_charges}", f"Rs. {invoice.taxable_amount}", f"Rs. {invoice.cgst_amount}", f"Rs. {invoice.sgst_amount}", f"Rs. {invoice.igst_amount}", f"Rs. {invoice.cess_amount}", f"Rs. {invoice.total_amount}"]
+    x = margin
+    total_h = 18
+    for col_index, value in enumerate(total_values):
+      draw_box(x, table_y, item_col_widths[col_index], total_h)
+      draw_cell_text(x, table_y, item_col_widths[col_index], total_h, value, size=7, bold=True, right=col_index not in {1})
+      x += item_col_widths[col_index]
+    y = table_y - total_h - 8
+
+    signature_w = content_width * 0.58
+    qr_w = content_width * 0.42
+    footer_h = 82
+    draw_box(margin, y, signature_w, footer_h)
+    draw_box(margin + signature_w, y, qr_w, footer_h)
+    draw_text(margin + 4, y - 12, invoice.seller_name, size=9)
+    draw_text(margin + 4, y - 54, "Authorized Signatory", size=9, bold=True)
+
+    qr_payload = "\n".join([
+      f"Invoice: {invoice.invoice_number}",
+      f"Order: {invoice.order_id}",
+      f"Amount: Rs. {invoice.total_amount}",
+      f"Payment: {order.selected_payment_method or order.payment_method}",
+      f"Customer: {invoice.customer_name}",
+      f"Date: {invoice.invoice_date:%d-%m-%Y}",
+    ])
+    qr = qrcode.QRCode(version=2, box_size=3, border=1)
+    qr.add_data(qr_payload)
+    qr.make(fit=True)
+    qr_img = qr.make_image(fill_color="black", back_color="white")
+    qr_buffer = BytesIO()
+    qr_img.save(qr_buffer, format="PNG")
+    pdf.drawImage(ImageReader(BytesIO(qr_buffer.getvalue())), margin + signature_w + qr_w - 26 * mm, y - 64, width=22 * mm, height=22 * mm)
+    draw_right_text(page_width - margin - 4, y - 70, "Scan for invoice details", size=7)
+    y -= footer_h + 8
+
+    draw_text(margin, y, "DECLARATION", size=9, bold=True)
+    y -= 11
+    for line in simpleSplit("The goods sold as part of this shipment are intended for end-user consumption and are not for retail sale", "Helvetica", 8, content_width):
+      draw_text(margin, y, line, size=8)
+      y -= 9
+    y -= 3
+    draw_text(margin, y, f"Registered Address: {settings.SELLER_REGISTERED_ADDRESS}", size=8)
+    y -= 10
+    draw_text(margin, y, settings.INVOICE_HELP_TEXT, size=8)
+    draw_right_text(page_width - margin, y, settings.BRAND_LOGO_TEXT, size=12, bold=True)
+
+    pdf.showPage()
+    pdf.save()
     pdf_bytes = output.getvalue()
     filename = f"{invoice.invoice_number}.pdf"
     invoice.pdf_file.save(filename, ContentFile(pdf_bytes), save=True)
     return pdf_bytes
-
-
-def image_bytes_to_data_uri(payload, mime_type="image/png"):
-    return f"data:{mime_type};base64,{base64.b64encode(payload).decode('ascii')}"
-
-
-def build_invoice_barcode_data(invoice_number):
-    try:
-        from barcode import Code128
-        from barcode.writer import ImageWriter
-    except ImportError as exc:
-        raise RuntimeError("python-barcode is required for invoice barcode generation") from exc
-
-    buffer = BytesIO()
-    barcode = Code128(invoice_number, writer=ImageWriter())
-    barcode.write(
-        buffer,
-        options={
-            "module_width": 0.23,
-            "module_height": 11,
-            "quiet_zone": 1.2,
-            "font_size": 8,
-            "text_distance": 1,
-            "dpi": 200,
-        },
-    )
-    return image_bytes_to_data_uri(buffer.getvalue())
-
-
-def build_invoice_qr_data(invoice):
-    try:
-        import qrcode
-    except ImportError as exc:
-        raise RuntimeError("qrcode is required for invoice QR generation") from exc
-
-    qr_payload = "\n".join(
-        [
-            f"Invoice: {invoice.invoice_number}",
-            f"Order: {invoice.order_id}",
-            f"Amount: Rs. {invoice.total_amount}",
-            f"Payment: {invoice.order.selected_payment_method or invoice.order.payment_method}",
-            f"Customer: {invoice.customer_name}",
-            f"Date: {invoice.invoice_date:%d-%m-%Y}",
-        ]
-    )
-    qr = qrcode.QRCode(version=2, box_size=4, border=1)
-    qr.add_data(qr_payload)
-    qr.make(fit=True)
-    image = qr.make_image(fill_color="black", back_color="white")
-    buffer = BytesIO()
-    image.save(buffer, format="PNG")
-    return image_bytes_to_data_uri(buffer.getvalue())
-
-
-def build_invoice_context(invoice, request=None):
-    order = invoice.order
-    items = list(invoice.items.all())
-    other_charges_remaining = quantize_money(invoice.other_charges)
-    item_rows = []
-    for index, item in enumerate(items, start=1):
-        allocated_other = Decimal("0.00")
-        if invoice.other_charges:
-            if index == len(items):
-                allocated_other = other_charges_remaining
-            else:
-                allocated_other = quantize_money(invoice.other_charges * item.taxable_amount / invoice.taxable_amount) if invoice.taxable_amount else Decimal("0.00")
-                other_charges_remaining = quantize_money(other_charges_remaining - allocated_other)
-        item_rows.append(
-            {
-                "item": item,
-                "allocated_other_charges": quantize_money(allocated_other),
-                "display_name": f"{item.sku or '-'} - {item.product_name}",
-                "hsn_display": item.hsn_code or "-",
-                "gst_display": f"{item.gst_rate}%",
-            }
-        )
-
-    return {
-        "invoice": invoice,
-        "order": order,
-        "items": items,
-        "invoice_item_rows": item_rows,
-        "request": request,
-        "barcode_data_uri": build_invoice_barcode_data(invoice.invoice_number),
-        "qr_data_uri": build_invoice_qr_data(invoice),
-        "seller_warehouse_address": settings.SELLER_WAREHOUSE_ADDRESS,
-        "seller_registered_address": settings.SELLER_REGISTERED_ADDRESS,
-        "seller_signature_name": settings.SELLER_SIGNATURE_NAME,
-        "invoice_help_text": settings.INVOICE_HELP_TEXT,
-        "brand_logo_text": settings.BRAND_LOGO_TEXT,
-    }
 
 
 @transaction.atomic
