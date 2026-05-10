@@ -2980,6 +2980,48 @@ del { color: var(--muted); }
 .checkout-offers-card {
   gap: 8px;
 }
+.payment-hero-card {
+  display: grid;
+  gap: 14px;
+  background:
+    radial-gradient(circle at top right, rgba(255,111,145,.12), transparent 28%),
+    linear-gradient(180deg, rgba(255,255,255,.98), rgba(255,247,243,.98));
+}
+.payment-hero-copy {
+  display: grid;
+  gap: 6px;
+}
+.payment-hero-copy p:last-child {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 600;
+}
+.payment-hero-trust {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.payment-hero-trust span,
+.payment-info-tile {
+  border: 1px solid rgba(234,223,220,.92);
+  background: rgba(255,255,255,.88);
+  border-radius: 16px;
+  padding: 12px 14px;
+}
+.payment-hero-trust span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 800;
+}
+.payment-hero-trust i {
+  color: var(--rose-deep);
+}
+.payment-gateway-note {
+  margin: 0;
+  color: #b42318;
+}
 .payment-screen {
   display: grid;
   gap: 16px;
@@ -3046,6 +3088,9 @@ del { color: var(--muted); }
 .payment-option-card-featured {
   background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(255,250,246,.98));
 }
+.payment-option-card-inline-note {
+  min-height: 58px;
+}
 .payment-option-radio {
   position: relative;
   width: 20px;
@@ -3111,6 +3156,10 @@ del { color: var(--muted); }
   font-weight: 900;
   white-space: nowrap;
 }
+.payment-upi-pay-btn:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
 .payment-option-card:has(input:checked) .payment-upi-pay-btn {
   display: inline-flex;
   align-items: center;
@@ -3150,6 +3199,23 @@ del { color: var(--muted); }
   gap: 10px;
   padding: 14px 16px;
   font-size: 13px;
+}
+.payment-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.payment-info-tile {
+  display: grid;
+  gap: 6px;
+}
+.payment-info-tile strong {
+  font-size: 14px;
+}
+.payment-info-tile small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
 }
 .checkout-payment-sticky {
   gap: 8px;
@@ -4993,6 +5059,9 @@ html.reveal-ready .reveal.visible { opacity: 1; transform: translateY(0); }
   .checkout-address-card {
     padding: 15px;
     border-radius: 20px;
+  }
+  .payment-info-grid {
+    grid-template-columns: 1fr;
   }
   .checkout-address-select {
     grid-template-columns: 18px 1fr;

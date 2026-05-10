@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Payment - Anaacoss{% endblock %}
 {% block content %}
-<section class="checkout-flow-page checkout-payment-page" data-payment-page data-checkout-mode="true" data-checkout-title="Payment" data-hide-header-search="true" data-selected-items="{{ checkout_item_ids }}" data-payment-total="{{ checkout_summary.total }}" data-payment-address-id="{% if selected_address %}{{ selected_address.id }}{% endif %}">
+<section class="checkout-flow-page checkout-payment-page" data-payment-page data-checkout-mode="true" data-checkout-title="Payment" data-hide-header-search="true" data-selected-items="{{ checkout_item_ids }}" data-payment-total="{{ checkout_summary.total }}" data-payment-address-id="{% if selected_address %}{{ selected_address.id }}{% endif %}" data-razorpay-enabled="{% if razorpay_enabled %}true{% else %}false{% endif %}">
   <div class="checkout-progress" aria-label="Checkout progress">
     <div class="checkout-progress-step is-complete">
       <span class="checkout-progress-icon"><i class="fa-solid fa-check"></i></span>
@@ -27,6 +27,22 @@
       </div>
       <a class="checkout-change-btn" href="{% url 'offers' %}" data-spa>All offers{% if coupon_count %} ({{ coupon_count }}){% endif %}</a>
     </div>
+  </section>
+
+  <section class="checkout-flow-card payment-hero-card">
+    <div class="payment-hero-copy">
+      <p class="checkout-flow-eyebrow">Secure checkout</p>
+      <h2>Choose how you want to pay</h2>
+      <p>UPI, credit card, debit card, net banking and wallets are processed securely with Razorpay.</p>
+    </div>
+    <div class="payment-hero-trust">
+      <span><i class="fa-solid fa-shield-heart"></i> 100% secure</span>
+      <span><i class="fa-solid fa-bolt"></i> Fast checkout</span>
+      <span><i class="fa-solid fa-credit-card"></i> All major methods</span>
+    </div>
+    {% if not razorpay_enabled %}
+      <p class="form-note payment-gateway-note">Razorpay keys are not configured yet. Online payments will stay disabled until `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` are added in `.env`.</p>
+    {% endif %}
   </section>
 
   <form class="payment-screen" id="payment-checkout-form" data-checkout-form data-payment-form>
@@ -80,10 +96,10 @@
               <span class="payment-app-badge payment-app-badge-phonepe">P</span>
               <span class="payment-option-copy">
                 <strong>PhonePe</strong>
-                <small>Recommended UPI app</small>
+                <small>Launch Razorpay with UPI-first checkout</small>
               </span>
               <span class="payment-option-indicator"><i class="fa-solid fa-angle-right"></i></span>
-              <button class="btn payment-upi-pay-btn" type="button" data-upi-pay="phonepe">Pay Now</button>
+              <button class="btn payment-upi-pay-btn" type="button" data-razorpay-pay="phonepe"{% if not razorpay_enabled %} disabled{% endif %}>Pay Now</button>
             </label>
             <label class="payment-option-card">
               <span class="payment-option-radio">
@@ -93,10 +109,10 @@
               <span class="payment-app-badge payment-app-badge-gpay">G</span>
               <span class="payment-option-copy">
                 <strong>Google Pay</strong>
-                <small>Pay securely with UPI</small>
+                <small>Use your preferred UPI app with Razorpay</small>
               </span>
               <span class="payment-option-indicator"><i class="fa-solid fa-angle-right"></i></span>
-              <button class="btn payment-upi-pay-btn" type="button" data-upi-pay="gpay">Pay Now</button>
+              <button class="btn payment-upi-pay-btn" type="button" data-razorpay-pay="gpay"{% if not razorpay_enabled %} disabled{% endif %}>Pay Now</button>
             </label>
             <label class="payment-option-card">
               <span class="payment-option-radio">
@@ -106,10 +122,10 @@
               <span class="payment-app-badge payment-app-badge-amazon">A</span>
               <span class="payment-option-copy">
                 <strong>Amazon Pay UPI</strong>
-                <small>Fast checkout with linked account</small>
+                <small>Fast checkout through Razorpay UPI</small>
               </span>
               <span class="payment-option-indicator"><i class="fa-solid fa-angle-right"></i></span>
-              <button class="btn payment-upi-pay-btn" type="button" data-upi-pay="amazon_pay_upi">Pay Now</button>
+              <button class="btn payment-upi-pay-btn" type="button" data-razorpay-pay="amazon_pay_upi"{% if not razorpay_enabled %} disabled{% endif %}>Pay Now</button>
             </label>
             <label class="payment-option-card">
               <span class="payment-option-radio">
@@ -119,10 +135,22 @@
               <span class="payment-app-badge payment-app-badge-imobile">iM</span>
               <span class="payment-option-copy">
                 <strong>iMobile (ICICI)</strong>
-                <small>Pay through your banking app</small>
+                <small>UPI-first payment flow for banking apps</small>
               </span>
               <span class="payment-option-indicator"><i class="fa-solid fa-angle-right"></i></span>
-              <button class="btn payment-upi-pay-btn" type="button" data-upi-pay="imobile">Pay Now</button>
+              <button class="btn payment-upi-pay-btn" type="button" data-razorpay-pay="imobile"{% if not razorpay_enabled %} disabled{% endif %}>Pay Now</button>
+            </label>
+            <label class="payment-option-card payment-option-card-inline-note">
+              <span class="payment-option-radio">
+                <input type="radio" name="payment_method" value="upi">
+                <span class="payment-custom-radio"></span>
+              </span>
+              <span class="payment-option-icon" aria-hidden="true"><i class="fa-solid fa-mobile-screen-button"></i></span>
+              <span class="payment-option-copy">
+                <strong>Other UPI apps</strong>
+                <small>Open a general UPI checkout with all supported apps</small>
+              </span>
+              <span class="payment-option-indicator"><i class="fa-solid fa-angle-right"></i></span>
             </label>
           </div>
         </section>
@@ -143,13 +171,13 @@
               </span>
               <span class="payment-option-copy">
                 <strong>Pay with Card</strong>
-                <small>Card form will be connected in the next step.</small>
+                <small>Visa, Mastercard, RuPay and more via Razorpay</small>
               </span>
               <span class="payment-option-icon" aria-hidden="true"><i class="fa-regular fa-credit-card"></i></span>
             </label>
             <div class="payment-placeholder-card">
               <i class="fa-regular fa-credit-card"></i>
-              <span>Card form placeholder for future gateway integration</span>
+              <span>Card details open in Razorpay’s secure hosted checkout so your existing UI stays unchanged.</span>
             </div>
           </div>
         </section>
@@ -170,7 +198,7 @@
               </span>
               <span class="payment-option-copy">
                 <strong>Net Banking</strong>
-                <small>Choose from supported banks later</small>
+                <small>Select your bank inside Razorpay checkout</small>
               </span>
               <span class="payment-option-icon" aria-hidden="true"><i class="fa-solid fa-building-columns"></i></span>
             </label>
@@ -181,13 +209,24 @@
               </span>
               <span class="payment-option-copy">
                 <strong>Wallet</strong>
-                <small>Use wallet balance or linked cashback wallet</small>
+                <small>Use supported wallets and cashback balances</small>
               </span>
               <span class="payment-option-icon" aria-hidden="true"><i class="fa-solid fa-wallet"></i></span>
             </label>
           </div>
         </section>
       </div>
+    </section>
+
+    <section class="checkout-flow-card payment-info-grid">
+      <article class="payment-info-tile">
+        <strong>Accepted online methods</strong>
+        <small>UPI, credit cards, debit cards, wallets and net banking.</small>
+      </article>
+      <article class="payment-info-tile">
+        <strong>Payment support</strong>
+        <small>Need help? Reach us at {{ support_email }}.</small>
+      </article>
     </section>
 
   </form>
@@ -211,4 +250,7 @@
   </div>
   <button class="btn checkout-sticky-btn" type="submit" form="payment-checkout-form" data-payment-place-order>Place Order</button>
 </div>
+{% endblock %}
+{% block extra_js %}
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 {% endblock %}

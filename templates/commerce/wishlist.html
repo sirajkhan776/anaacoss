@@ -7,7 +7,7 @@
     {% for item in wishlist_items %}
       {% with product=item.product %}{% include "partials_product_card.html" %}{% endwith %}
     {% empty %}
-      <p class="empty-state">Login and tap the heart to save your next ritual.</p>
+      <p class="empty-state" data-wishlist-empty-message>{% if request.user.is_authenticated %}No items saved yet. Tap the heart to add your next ritual.{% else %}Loading your wishlist...{% endif %}</p>
     {% endfor %}
   </div>
 </section>

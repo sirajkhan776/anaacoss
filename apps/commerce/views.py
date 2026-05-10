@@ -1,7 +1,13 @@
+import base64
 from collections import OrderedDict
 from datetime import timedelta
 from decimal import Decimal
+import hashlib
+import hmac
+import json
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 
 from django.conf import settings
 from django.http import FileResponse, HttpResponse
@@ -77,6 +83,58 @@ PAYMENT_METHOD_LABELS = {
     "net_banking": "Net Banking",
     "wallet": "Wallet",
     **UPI_METHOD_LABELS,
+}
+
+
+RAZORPAY_METHOD_BLOCKS = {
+    "upi": {
+        "display": {
+            "blocks": {
+                "upi_only": {
+                    "name": "Pay via UPI",
+                    "instruments": [{"method": "upi"}],
+                }
+            },
+            "sequence": ["block.upi_only"],
+            "preferences": {"show_default_blocks": False},
+        }
+    },
+    "card": {
+        "display": {
+            "blocks": {
+                "cards_only": {
+                    "name": "Pay via Card",
+                    "instruments": [{"method": "card"}],
+                }
+            },
+            "sequence": ["block.cards_only"],
+            "preferences": {"show_default_blocks": False},
+        }
+    },
+    "net_banking": {
+        "display": {
+            "blocks": {
+                "netbanking_only": {
+                    "name": "Pay via Net Banking",
+                    "instruments": [{"method": "netbanking"}],
+                }
+            },
+            "sequence": ["block.netbanking_only"],
+            "preferences": {"show_default_blocks": False},
+        }
+    },
+    "wallet": {
+        "display": {
+            "blocks": {
+                "wallet_only": {
+                    "name": "Pay via Wallet",
+                    "instruments": [{"method": "wallet"}],
+                }
+            },
+            "sequence": ["block.wallet_only"],
+            "preferences": {"show_default_blocks": False},
+        }
+    },
 }
 
 
@@ -218,6 +276,84 @@ def build_order_groups(user):
     return [group for group in groups.values() if group["items"]]
 
 
+def razorpay_configured():
+    key_id = (settings.RAZORPAY_KEY_ID or "").strip()
+    key_secret = (settings.RAZORPAY_KEY_SECRET or "").strip()
+    placeholder_values = {
+        "rzp_test_your_key_id",
+        "your_razorpay_key_secret",
+        "rzp_live_your_key_id",
+        "your_live_razorpay_key_secret",
+    }
+    return bool(key_id and key_secret and key_id not in placeholder_values and key_secret not in placeholder_values)
+
+
+def build_razorpay_checkout_config(payment_method):
+    if payment_method in UPI_METHOD_LABELS:
+        payment_method = "upi"
+    base_config = {
+        "display": {
+            "blocks": {
+                "all_methods": {
+                    "name": "Choose a Payment Method",
+                    "instruments": [
+                        {"method": "upi"},
+                        {"method": "card"},
+                        {"method": "netbanking"},
+                        {"method": "wallet"},
+                    ],
+                }
+            },
+            "sequence": ["block.all_methods"],
+            "preferences": {"show_default_blocks": False},
+        }
+    }
+    return RAZORPAY_METHOD_BLOCKS.get(payment_method, base_config)
+
+
+def create_razorpay_order(order):
+    auth = base64.b64encode(f"{settings.RAZORPAY_KEY_ID}:{settings.RAZORPAY_KEY_SECRET}".encode("utf-8")).decode("ascii")
+    payload = json.dumps(
+        {
+            "amount": int(order.total * 100),
+            "currency": settings.RAZORPAY_CURRENCY,
+            "receipt": f"order_{order.id}",
+            "notes": {
+                "internal_order_id": str(order.id),
+                "customer_name": order.full_name[:255],
+            },
+        }
+    ).encode("utf-8")
+    request = Request(
+        "https://api.razorpay.com/v1/orders",
+        data=payload,
+        headers={
+            "Authorization": f"Basic {auth}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urlopen(request, timeout=15) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="ignore")
+        try:
+            parsed = json.loads(detail) if detail else {}
+        except json.JSONDecodeError:
+            parsed = {}
+        message = parsed.get("error", {}).get("description") or "Unable to create Razorpay order."
+        raise ValueError(message) from exc
+    except (URLError, TimeoutError) as exc:
+        raise ValueError("Unable to reach Razorpay. Check your gateway credentials and network access.") from exc
+
+
+def verify_razorpay_signature(order, razorpay_payment_id, razorpay_signature):
+    message = f"{order.razorpay_order_id}|{razorpay_payment_id}".encode("utf-8")
+    expected = hmac.new(settings.RAZORPAY_KEY_SECRET.encode("utf-8"), message, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, razorpay_signature)
+
+
 @jwt_required_page
 def cart_page(request):
     ctx = base_context()
@@ -269,6 +405,9 @@ def payment_view(request):
     ctx["coupon_count"] = Coupon.objects.filter(is_active=True).count()
     ctx["admin_upi_id"] = settings.ADMIN_UPI_ID
     ctx["admin_upi_name"] = settings.ADMIN_NAME
+    ctx["razorpay_key_id"] = settings.RAZORPAY_KEY_ID
+    ctx["razorpay_enabled"] = razorpay_configured()
+    ctx["support_email"] = settings.SUPPORT_EMAIL
     ctx["hide_header_search"] = True
     ctx["checkout_mode"] = True
     ctx["page_title"] = "Payment"
@@ -289,10 +428,12 @@ def payment_pending_page(request, order_id):
 payment_page = payment_view
 
 
-@jwt_required_page
 def wishlist_page(request):
     ctx = base_context()
-    ctx["wishlist_items"] = request.user.wishlist_items.select_related("product").prefetch_related("product__images")
+    if request.user.is_authenticated:
+        ctx["wishlist_items"] = request.user.wishlist_items.select_related("product").prefetch_related("product__images")
+    else:
+        ctx["wishlist_items"] = []
     return render(request, "commerce/wishlist.html", ctx)
 
 
@@ -737,6 +878,124 @@ class OrderViewSet(viewsets.ModelViewSet):
                 "selected_payment_method": order.selected_payment_method,
             },
             status=status.HTTP_201_CREATED,
+        )
+
+    @action(detail=False, methods=["post"], permission_classes=[permissions.IsAuthenticated], url_path="start-razorpay")
+    def start_razorpay(self, request):
+        if not razorpay_configured():
+            return Response({"razorpay": ["Razorpay is not configured on the server."]}, status=status.HTTP_400_BAD_REQUEST)
+        cart = get_cart(request)
+        if not cart.items.exists():
+            return Response({"cart": ["Your cart is empty."]}, status=status.HTTP_400_BAD_REQUEST)
+
+        selected_item_ids = request.data.get("selected_item_ids") or []
+        if isinstance(selected_item_ids, str):
+            selected_item_ids = [item.strip() for item in selected_item_ids.split(",") if item.strip()]
+        items_queryset = cart.items.select_related("product", "variant")
+        if selected_item_ids:
+            items_queryset = items_queryset.filter(id__in=selected_item_ids)
+        if not items_queryset.exists():
+            return Response({"selected_item_ids": ["Select at least one cart item."]}, status=status.HTTP_400_BAD_REQUEST)
+
+        address_id = request.data.get("address_id")
+        address = request.user.addresses.filter(pk=address_id).first() if address_id else None
+        if not address:
+            return Response({"address_id": ["Select a valid saved address."]}, status=status.HTTP_400_BAD_REQUEST)
+
+        payment_method = (request.data.get("payment_method") or "upi").strip()
+        if payment_method == "cod":
+            payment_method = "upi"
+        selected_label = PAYMENT_METHOD_LABELS.get(payment_method, payment_method.replace("_", " ").title())
+        payload = {
+            "full_name": address.full_name,
+            "email": request.user.email,
+            "phone": address.phone,
+            "address_line1": address.line1,
+            "address_line2": address.line2,
+            "city": address.city,
+            "state": address.state,
+            "postal_code": address.postal_code,
+            "payment_method": payment_method,
+            "selected_payment_method": selected_label,
+        }
+        order = place_order(
+            request.user,
+            cart,
+            payload,
+            items_queryset=items_queryset,
+            payment_status=Order.PAYMENT_PENDING,
+            selected_payment_method=selected_label,
+        )
+        try:
+            razorpay_order = create_razorpay_order(order)
+        except ValueError as exc:
+            order.payment_status = Order.PAYMENT_FAILED
+            order.save(update_fields=["payment_status"])
+            return Response({"razorpay": [str(exc)]}, status=status.HTTP_400_BAD_REQUEST)
+
+        order.razorpay_order_id = razorpay_order["id"]
+        order.save(update_fields=["razorpay_order_id"])
+
+        return Response(
+            {
+                "id": order.id,
+                "key": settings.RAZORPAY_KEY_ID,
+                "amount": razorpay_order["amount"],
+                "currency": razorpay_order["currency"],
+                "name": settings.SELLER_NAME,
+                "description": f"Order #{order.id}",
+                "prefill": {
+                    "name": order.full_name,
+                    "email": order.email,
+                    "contact": order.phone,
+                },
+                "notes": {
+                    "internal_order_id": str(order.id),
+                    "selected_payment_method": selected_label,
+                },
+                "order_id": razorpay_order["id"],
+                "checkout_config": build_razorpay_checkout_config(payment_method),
+                "selected_payment_method": selected_label,
+                "pending_url": f"/checkout/payment/pending/{order.id}/",
+                "redirect_url": f"/orders/{order.id}/",
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+    @action(detail=False, methods=["post"], permission_classes=[permissions.IsAuthenticated], url_path="verify-razorpay")
+    def verify_razorpay(self, request):
+        order_id = request.data.get("order_id")
+        razorpay_payment_id = (request.data.get("razorpay_payment_id") or "").strip()
+        razorpay_order_id = (request.data.get("razorpay_order_id") or "").strip()
+        razorpay_signature = (request.data.get("razorpay_signature") or "").strip()
+
+        if not all([order_id, razorpay_payment_id, razorpay_order_id, razorpay_signature]):
+            return Response({"razorpay": ["Payment verification payload is incomplete."]}, status=status.HTTP_400_BAD_REQUEST)
+
+        order = request.user.orders.filter(pk=order_id).first()
+        if not order:
+            return Response({"order": ["Order not found."]}, status=status.HTTP_404_NOT_FOUND)
+        if not order.razorpay_order_id or order.razorpay_order_id != razorpay_order_id:
+            return Response({"razorpay": ["Razorpay order mismatch."]}, status=status.HTTP_400_BAD_REQUEST)
+        if not verify_razorpay_signature(order, razorpay_payment_id, razorpay_signature):
+            order.payment_status = Order.PAYMENT_FAILED
+            order.razorpay_payment_id = razorpay_payment_id
+            order.razorpay_signature = razorpay_signature
+            order.save(update_fields=["payment_status", "razorpay_payment_id", "razorpay_signature"])
+            return Response({"razorpay": ["Payment signature verification failed."]}, status=status.HTTP_400_BAD_REQUEST)
+
+        order.payment_status = Order.PAYMENT_PAID
+        order.status = Order.PAID
+        order.razorpay_payment_id = razorpay_payment_id
+        order.razorpay_signature = razorpay_signature
+        order.save(update_fields=["payment_status", "status", "razorpay_payment_id", "razorpay_signature"])
+
+        return Response(
+            {
+                "id": order.id,
+                "payment_status": order.payment_status,
+                "redirect_url": f"/orders/{order.id}/",
+            }
         )
 
 

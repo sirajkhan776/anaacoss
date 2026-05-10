@@ -34,8 +34,11 @@ if render_external_hostname and render_external_hostname not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.append(render_external_hostname)
 
 INSTALLED_APPS = [
+    "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
     "django.contrib.sitemaps",
     "django.contrib.staticfiles",
     "rest_framework",
@@ -51,7 +54,10 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "corsheaders.middleware.CorsMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
     "apps.accounts.middleware.JWTUserMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -68,6 +74,7 @@ TEMPLATES = [
                 "django.template.context_processors.debug",
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
             ],
         },
     }
@@ -156,6 +163,9 @@ EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
 ADMIN_UPI_ID = env("ADMIN_UPI_ID", "")
 ADMIN_NAME = env("ADMIN_NAME", "Anaacoss")
+RAZORPAY_KEY_ID = env("RAZORPAY_KEY_ID", "")
+RAZORPAY_KEY_SECRET = env("RAZORPAY_KEY_SECRET", "")
+RAZORPAY_CURRENCY = env("RAZORPAY_CURRENCY", "INR")
 SUPPORT_EMAIL = env("SUPPORT_EMAIL", "care@anaacoss.example")
 SUPPORT_PHONE = env("SUPPORT_PHONE", "+91 90000 00000")
 SUPPORT_WHATSAPP = env("SUPPORT_WHATSAPP", SUPPORT_PHONE)

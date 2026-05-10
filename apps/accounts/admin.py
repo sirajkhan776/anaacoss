@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 
-from .models import Address, Profile, User
+from .models import Address, Profile, ShoppingProfile, User
 
 
 @admin.register(User)
@@ -21,3 +21,9 @@ class AddressAdmin(admin.ModelAdmin):
     list_display = ("user", "label", "city", "state", "postal_code", "is_default")
     list_filter = ("state", "is_default")
     search_fields = ("user__email", "full_name", "phone", "city")
+
+
+@admin.register(ShoppingProfile)
+class ShoppingProfileAdmin(admin.ModelAdmin):
+    list_display = ("user", "first_name", "last_name", "created_at")
+    search_fields = ("user__email", "user__username", "first_name", "last_name")

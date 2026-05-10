@@ -171,6 +171,25 @@ const Storefront = (() => {
     });
   }
 
+  function renderWishlistEmptyState(root, message) {
+    if (!root) return;
+    root.innerHTML = `<p class="empty-state" data-wishlist-empty-message>${message}</p>`;
+  }
+
+  function renderWishlistGrid(items = []) {
+    const root = $("[data-wishlist-grid]");
+    if (!root) return;
+    if (!items.length) {
+      const message = state.user
+        ? "No items saved yet. Tap the heart to add your next ritual."
+        : "Login and tap the heart to save your next ritual.";
+      renderWishlistEmptyState(root, message);
+      return;
+    }
+    root.innerHTML = items.map((item) => productCardHtml(item.product)).join("");
+    syncWishlistButtons(root);
+  }
+
   function normalizeNavPath(path) {
     const clean = (path || "/").replace(/\/+$/, "") || "/";
     if (clean === "/" || clean === "") return "/";
@@ -356,6 +375,123 @@ const Storefront = (() => {
         window.setTimeout(() => {
           window.location.href = data.fallback_url;
         }, 900);
+      } catch (error) {
+        toast(flattenError(error));
+      }
+    });
+  }
+
+  function selectedPaymentMethod(page) {
+    return $('input[name="payment_method"]:checked', page)?.value || "cod";
+  }
+
+  function onlinePaymentMethod(method) {
+    return method && method !== "cod";
+  }
+
+  async function verifyRazorpayPayment(orderId, response) {
+    return api("/api/orders/verify-razorpay/", {
+      method: "POST",
+      body: JSON.stringify({
+        order_id: orderId,
+        razorpay_payment_id: response.razorpay_payment_id,
+        razorpay_order_id: response.razorpay_order_id,
+        razorpay_signature: response.razorpay_signature,
+      }),
+    });
+  }
+
+  async function startRazorpayPayment(paymentMethod, trigger) {
+    const page = $("[data-payment-page]");
+    const form = $("[data-checkout-form]", page || document);
+    if (!page || !form) return;
+    if (page.dataset.razorpayEnabled !== "true") {
+      toast("Online payments are not available right now.");
+      return;
+    }
+    if (typeof window.Razorpay !== "function") {
+      toast("Payment gateway failed to load. Refresh and try again.");
+      return;
+    }
+
+    const user = await ensureUserProfile();
+    if (!user) {
+      openAuthModal(trigger, {
+        returnUrl: currentUrl(),
+        onSuccess: async () => startRazorpayPayment(paymentMethod, trigger),
+      });
+      toast("Login to continue");
+      return;
+    }
+
+    const addressId = form.elements.namedItem("address_id")?.value || page.dataset.paymentAddressId;
+    const selectedIds = selectedItemIdsFromUrl();
+    if (!addressId) {
+      toast("Select a saved address to continue");
+      return;
+    }
+    if (!selectedIds.length) {
+      toast("Please select at least one item.");
+      return;
+    }
+
+    await withLockedButton(trigger, async () => {
+      try {
+        const data = await api("/api/orders/start-razorpay/", {
+          method: "POST",
+          body: JSON.stringify({
+            payment_method: paymentMethod,
+            address_id: addressId,
+            selected_item_ids: selectedIds,
+          }),
+        });
+
+        const razorpay = new window.Razorpay({
+          key: data.key,
+          amount: data.amount,
+          currency: data.currency,
+          name: data.name,
+          description: data.description,
+          order_id: data.order_id,
+          prefill: data.prefill,
+          notes: data.notes,
+          config: data.checkout_config,
+          theme: {
+            color: "#ff4f8a",
+            backdrop_color: "#fff6f1",
+          },
+          modal: {
+            confirm_close: true,
+            ondismiss: () => {
+              toast("Payment not completed");
+              window.setTimeout(() => {
+                window.location.href = data.pending_url;
+              }, 500);
+            },
+          },
+          handler: async (response) => {
+            try {
+              const verified = await verifyRazorpayPayment(data.id, response);
+              toast("Payment successful");
+              localStorage.removeItem("anaacoss_cart_selected");
+              state.cartSelectedIds = new Set();
+              await updateCartBadge();
+              await navigate(verified.redirect_url || data.redirect_url || "/orders/");
+            } catch (error) {
+              toast(flattenError(error));
+              window.location.href = data.pending_url;
+            }
+          },
+        });
+
+        razorpay.on("payment.failed", () => {
+          toast("Payment failed. You can retry from your orders page.");
+          window.setTimeout(() => {
+            window.location.href = data.pending_url;
+          }, 800);
+        });
+
+        razorpay.open();
       } catch (error) {
         toast(flattenError(error));
       }
@@ -864,6 +1000,26 @@ const Storefront = (() => {
     }
   }
 
+  async function bindWishlistPage() {
+    const root = $("[data-wishlist-grid]");
+    if (!root) return;
+    const user = await ensureUserProfile();
+    if (!user) {
+      state.wishlistProductIds = new Set();
+      renderWishlistEmptyState(root, "Login and tap the heart to save your next ritual.");
+      syncWishlistButtons(root);
+      return;
+    }
+    try {
+      const wishlist = await api("/api/wishlist/", { silent: true });
+      state.wishlistProductIds = new Set((wishlist || []).map((item) => String(item.product?.id || "")));
+      renderWishlistGrid(wishlist || []);
+      setCountBadge($$("[data-wishlist-count], [data-wishlist-count-mobile]"), wishlist.length || 0);
+    } catch {
+      renderWishlistEmptyState(root, "Unable to load your wishlist right now.");
+    }
+  }
+
   async function updateDeliveryStrip(options = {}) {
     const strip = $("[data-delivery-strip]");
     const name = $("[data-delivery-name]");
@@ -1349,6 +1505,13 @@ const Storefront = (() => {
             else state.wishlistProductIds.delete(productId);
             $$(`[data-wishlist="${productId}"]`).forEach((button) => setWishlistButtonState(button, data.wishlisted));
             setCountBadge($$("[data-wishlist-count], [data-wishlist-count-mobile]"), data.count || 0);
+            if ($("[data-wishlist-grid]") && !data.wishlisted) {
+              $$(`[data-product-id="${productId}"]`).forEach((card) => card.remove());
+              const grid = $("[data-wishlist-grid]");
+              if (grid && !$("[data-product-id]", grid)) {
+                renderWishlistEmptyState(grid, "No items saved yet. Tap the heart to add your next ritual.");
+              }
+            }
             toast(data.wishlisted ? "Saved to wishlist" : "Removed from wishlist");
           } catch {
             openAuthModal(wish, { returnUrl: currentUrl() });
@@ -1640,11 +1803,21 @@ const Storefront = (() => {
       }).join("") : `<p class="empty-state">Your bag is waiting for a ritual.</p>`;
     }
     if (summary) {
-      summary.innerHTML = `
-        <div class="summary-row"><span>Subtotal</span><strong>${currency(totals.originalSubtotal)}</strong></div>
-        <div class="summary-row"><span>Discount</span><strong>- ${currency(totals.savings + totals.couponDiscount)}</strong></div>
-        <div class="summary-row"><span>Shipping</span><strong>${currency(totals.shipping)}</strong></div>
-        <div class="summary-row total"><span>Total</span><strong>${currency(totals.total)}</strong></div>`;
+      const summaryRows = [
+        `<div class="summary-row"><span>Subtotal</span><strong>${currency(totals.subtotal)}</strong></div>`,
+      ];
+      if (totals.savings > 0) {
+        summaryRows.push(`<div class="summary-row"><span>Product Discount</span><strong>- ${currency(totals.savings)}</strong></div>`);
+      }
+      if (totals.couponDiscount > 0) {
+        summaryRows.push(`<div class="summary-row"><span>Coupon Discount</span><strong>- ${currency(totals.couponDiscount)}</strong></div>`);
+      }
+      if (totals.originalSubtotal > totals.subtotal) {
+        summaryRows.push(`<div class="summary-row"><span>Total MRP</span><strong>${currency(totals.originalSubtotal)}</strong></div>`);
+      }
+      summaryRows.push(`<div class="summary-row"><span>Shipping</span><strong>${currency(totals.shipping)}</strong></div>`);
+      summaryRows.push(`<div class="summary-row total"><span>Total Amount</span><strong>${currency(totals.total)}</strong></div>`);
+      summary.innerHTML = summaryRows.join("");
     }
     if (couponChipRow) {
       if (cart.coupon) {
@@ -1660,14 +1833,14 @@ const Storefront = (() => {
         couponChipRow.innerHTML = "";
       }
     }
-    if (bagMeta) bagMeta.textContent = `${totals.count} item${totals.count === 1 ? "" : "s"} selected | ${currency(totals.total)}`;
+    if (bagMeta) bagMeta.textContent = `${totals.count} item${totals.count === 1 ? "" : "s"} selected | Subtotal ${currency(totals.subtotal)}`;
     if (savingsBanner && savingsText) {
       const savedAmount = totals.savings + totals.couponDiscount;
       savingsBanner.hidden = savedAmount <= 0;
       savingsText.textContent = `You're saving ₹${Math.round(savedAmount)} on this order`;
     }
     if (stickyCount) stickyCount.textContent = `${totals.count} Item${totals.count === 1 ? "" : "s"} selected for order`;
-    if (stickyTotal) stickyTotal.textContent = `Total ₹${Math.round(totals.total)}`;
+    if (stickyTotal) stickyTotal.textContent = `Payable Rs. ${Math.round(totals.total)}`;
   }
 
   function bindCart() {
@@ -1928,6 +2101,14 @@ const Storefront = (() => {
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
       const submitter = event.submitter || form.querySelector('[type="submit"]');
+      const paymentPage = $("[data-payment-page]");
+      if (form.hasAttribute("data-payment-form") && paymentPage) {
+        const method = selectedPaymentMethod(paymentPage);
+        if (onlinePaymentMethod(method)) {
+          await startRazorpayPayment(method, submitter);
+          return;
+        }
+      }
       const user = await ensureUserProfile();
       if (!user) {
         openAuthModal(submitter, {
@@ -2021,11 +2202,12 @@ const Storefront = (() => {
     page.dataset.bound = "true";
     const stickyPlaceOrder = $("[data-payment-place-order]");
     const syncPaymentState = () => {
-      const selected = $('input[name="payment_method"]:checked', page);
-      const isCod = !selected || selected.value === "cod";
+      const method = selectedPaymentMethod(page);
+      const isCod = !onlinePaymentMethod(method);
       if (stickyPlaceOrder) {
-        stickyPlaceOrder.hidden = !isCod;
-        stickyPlaceOrder.disabled = !isCod;
+        stickyPlaceOrder.hidden = false;
+        stickyPlaceOrder.disabled = onlinePaymentMethod(method) && page.dataset.razorpayEnabled !== "true";
+        stickyPlaceOrder.textContent = isCod ? "Place Order" : "Pay Securely";
       }
     };
 
@@ -2048,10 +2230,10 @@ const Storefront = (() => {
     });
 
     page.addEventListener("click", (event) => {
-      const payBtn = event.target.closest("[data-upi-pay]");
+      const payBtn = event.target.closest("[data-razorpay-pay]");
       if (!payBtn) return;
       event.preventDefault();
-      startUpiPayment(payBtn.dataset.upiPay);
+      startRazorpayPayment(payBtn.dataset.razorpayPay, payBtn);
     });
 
     const summaryToggle = $("[data-payment-summary-toggle]", page.parentElement || document);
@@ -2061,6 +2243,16 @@ const Storefront = (() => {
         const expanded = summaryToggle.getAttribute("aria-expanded") === "true";
         summaryToggle.setAttribute("aria-expanded", expanded ? "false" : "true");
         summaryPanel.hidden = expanded;
+      });
+    }
+
+    if (stickyPlaceOrder) {
+      stickyPlaceOrder.addEventListener("click", async (event) => {
+        const method = selectedPaymentMethod(page);
+        if (!onlinePaymentMethod(method)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        startRazorpayPayment(method, stickyPlaceOrder);
       });
     }
     syncPaymentState();
@@ -2885,6 +3077,7 @@ const Storefront = (() => {
     bindHomeHero();
     bindCategoryMarquee();
     bindDashboard();
+    bindWishlistPage();
     syncPageChrome();
     updateMobileNavState();
     reveal();
@@ -2911,4 +3104,5 @@ const Storefront = (() => {
 })();
 
 document.addEventListener("DOMContentLoaded", Storefront.init);
+
 
