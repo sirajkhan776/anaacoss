@@ -43,17 +43,18 @@
     <input class="lux-input" name="line1" placeholder="Address line 1" value="{% if address_record %}{{ address_record.line1 }}{% endif %}" required>
     <input class="lux-input" name="line2" placeholder="Address line 2" value="{% if address_record %}{{ address_record.line2 }}{% endif %}">
     <div class="form-grid">
+      <input class="lux-input" name="postal_code" placeholder="PIN / Postal code" value="{% if address_record %}{{ address_record.postal_code }}{% endif %}" data-address-pincode required>
       <select class="lux-input" name="country" data-address-country required>
         <option value="India" {% if not address_record or address_record.country == 'India' %}selected{% endif %}>India</option>
         <option value="United States" {% if address_record and address_record.country == 'United States' %}selected{% endif %}>United States</option>
         <option value="United Kingdom" {% if address_record and address_record.country == 'United Kingdom' %}selected{% endif %}>United Kingdom</option>
         <option value="United Arab Emirates" {% if address_record and address_record.country == 'United Arab Emirates' %}selected{% endif %}>United Arab Emirates</option>
       </select>
-      <select class="lux-input" name="state" data-address-state data-initial-value="{% if address_record %}{{ address_record.state }}{% endif %}" required></select>
     </div>
+    <p class="form-note" data-pincode-message>Enter a valid PIN code to auto-fill state and city when available.</p>
     <div class="form-grid">
+      <select class="lux-input" name="state" data-address-state data-initial-value="{% if address_record %}{{ address_record.state }}{% endif %}" required></select>
       <select class="lux-input" name="city" data-address-city data-initial-value="{% if address_record %}{{ address_record.city }}{% endif %}" required></select>
-      <input class="lux-input" name="postal_code" placeholder="Postal code" value="{% if address_record %}{{ address_record.postal_code }}{% endif %}" required>
     </div>
     <label class="profile-address-default">
       <input type="checkbox" name="is_default" {% if address_record and address_record.is_default %}checked{% endif %}>

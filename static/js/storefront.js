@@ -1211,6 +1211,16 @@ const Storefront = (() => {
     select.innerHTML = options.join("");
   }
 
+  function locationDataForCountry(country, fallbackState = "", fallbackCity = "") {
+    const data = { ...(ADDRESS_LOCATION_DATA[country] || {}) };
+    if (fallbackState) {
+      const cities = data[fallbackState] ? [...data[fallbackState]] : [];
+      if (fallbackCity && !cities.includes(fallbackCity)) cities.push(fallbackCity);
+      data[fallbackState] = cities;
+    }
+    return data;
+  }
+
   function syncAddressLocationFields(form, values = {}) {
     if (!form) return;
     const countryField = form.elements.namedItem("country");
@@ -1218,10 +1228,11 @@ const Storefront = (() => {
     const cityField = form.elements.namedItem("city");
     const selectedCountry = values.country || countryField?.value || "India";
     if (countryField) countryField.value = selectedCountry;
-    const states = Object.keys(ADDRESS_LOCATION_DATA[selectedCountry] || {});
+    const countryData = locationDataForCountry(selectedCountry, values.state || "", values.city || "");
+    const states = Object.keys(countryData);
     setSelectOptions(stateField, states, "Select state", values.state || stateField?.dataset.initialValue || "");
     const selectedState = values.state || stateField?.value || "";
-    const cities = ADDRESS_LOCATION_DATA[selectedCountry]?.[selectedState] || [];
+    const cities = countryData[selectedState] || [];
     setSelectOptions(cityField, cities, "Select city", values.city || cityField?.dataset.initialValue || "");
   }
 
@@ -1258,8 +1269,64 @@ const Storefront = (() => {
     syncAddressLocationFields(form);
     const countryField = form.elements.namedItem("country");
     const stateField = form.elements.namedItem("state");
+    const pincodeField = form.elements.namedItem("postal_code");
+    const pincodeMessage = form.querySelector("[data-pincode-message]");
     countryField?.addEventListener("change", () => syncAddressLocationFields(form, { country: countryField.value }));
     stateField?.addEventListener("change", () => syncAddressLocationFields(form, { country: countryField?.value, state: stateField.value }));
+
+    const setPincodeMessage = (message = "") => {
+      if (pincodeMessage) pincodeMessage.textContent = message;
+    };
+
+    let pincodeTimer = null;
+    let pincodeAbortController = null;
+    const lookupPincode = async () => {
+      const country = String(countryField?.value || "India");
+      const rawCode = String(pincodeField?.value || "").trim();
+      const pincode = rawCode.replace(/\D/g, "");
+      if (!pincodeField) return;
+      if (country !== "India") {
+        setPincodeMessage("PIN auto-fill is available for India. Choose state and city manually for other countries.");
+        return;
+      }
+      if (pincode.length < 6) {
+        setPincodeMessage("Enter a 6-digit PIN code to auto-fill state and city.");
+        return;
+      }
+      pincodeAbortController?.abort();
+      pincodeAbortController = new AbortController();
+      setPincodeMessage("Looking up PIN code...");
+      try {
+        const response = await fetch(`https://api.postalpincode.in/pincode/${pincode}`, {
+          signal: pincodeAbortController.signal,
+        });
+        const payload = await response.json().catch(() => []);
+        const result = payload?.[0] || {};
+        const offices = Array.isArray(result.PostOffice) ? result.PostOffice : [];
+        if (result.Status !== "Success" || !offices.length) {
+          setPincodeMessage("PIN code lookup was unavailable. Please choose state and city manually.");
+          return;
+        }
+        const primaryOffice = offices[0];
+        const nextState = primaryOffice.State || "";
+        const nextCity = primaryOffice.District || primaryOffice.Block || primaryOffice.Name || "";
+        syncAddressLocationFields(form, {
+          country: "India",
+          state: nextState,
+          city: nextCity,
+        });
+        setPincodeMessage(`Detected ${nextCity}${nextState ? `, ${nextState}` : ""} from PIN code.`);
+      } catch (error) {
+        if (error?.name === "AbortError") return;
+        setPincodeMessage("PIN lookup could not complete. Please choose state and city manually.");
+      }
+    };
+
+    pincodeField?.addEventListener("input", () => {
+      if (pincodeTimer) window.clearTimeout(pincodeTimer);
+      pincodeTimer = window.setTimeout(lookupPincode, 500);
+    });
+    pincodeField?.addEventListener("blur", lookupPincode);
   }
 
   async function navigate(url, push = true) {

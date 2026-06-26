@@ -411,17 +411,18 @@
       <input class="lux-input" name="line1" placeholder="Address line 1" required>
       <input class="lux-input" name="line2" placeholder="Address line 2">
       <div class="form-grid">
+        <input class="lux-input" name="postal_code" placeholder="PIN / Postal code" data-address-pincode required>
         <select class="lux-input" name="country" data-address-country required>
           <option value="India" selected>India</option>
           <option value="United States">United States</option>
           <option value="United Kingdom">United Kingdom</option>
           <option value="United Arab Emirates">United Arab Emirates</option>
         </select>
-        <select class="lux-input" name="state" data-address-state required></select>
       </div>
+      <p class="form-note" data-pincode-message>Enter a valid PIN code to auto-fill state and city when available.</p>
       <div class="form-grid">
+        <select class="lux-input" name="state" data-address-state required></select>
         <select class="lux-input" name="city" data-address-city required></select>
-        <input class="lux-input" name="postal_code" placeholder="Postal code" required>
       </div>
       <label class="profile-address-default">
         <input type="checkbox" name="is_default">
