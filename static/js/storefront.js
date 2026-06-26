@@ -654,7 +654,7 @@ const Storefront = (() => {
   function syncCartSelection(cart) {
     const itemIds = new Set((cart?.items || []).map((item) => String(item.id)));
     state.cartSelectedIds = new Set([...state.cartSelectedIds].filter((id) => itemIds.has(String(id))));
-    if (!state.cartSelectedIds.size && localStorage.getItem("anaacoss_cart_selected") === null) {
+    if (!state.cartSelectedIds.size && itemIds.size) {
       (cart?.items || []).forEach((item) => state.cartSelectedIds.add(String(item.id)));
     }
     saveCartSelection();
