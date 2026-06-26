@@ -4524,7 +4524,7 @@ html.reveal-ready .reveal.visible { opacity: 1; transform: translateY(0); }
   100% { transform: translateX(260%) rotate(18deg); }
 }
 
-@media (prefers-color-scheme: dark) {
+@media (prefers-color-scheme: dark) and (max-width: 0) {
   :root {
     color-scheme: dark;
     --ink: #f8efeb;
@@ -5576,7 +5576,7 @@ html.reveal-ready .reveal.visible { opacity: 1; transform: translateY(0); }
     pointer-events: none;
   }
 
-  @media (prefers-color-scheme: dark) {
+  @media (prefers-color-scheme: dark) and (max-width: 0) {
     .mobile-bottom-nav {
       background: rgba(19,15,17,.96);
       border-top-color: rgba(255, 228, 223, .12);
