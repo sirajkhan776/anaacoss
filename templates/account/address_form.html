@@ -22,19 +22,38 @@
     </div>
 
     <div class="form-grid">
-      <input class="lux-input" name="label" placeholder="Home / Work / Other" value="{% if address_record %}{{ address_record.label }}{% endif %}" required>
+      <select class="lux-input" name="label" required>
+        <option value="">Select address type</option>
+        <option value="Home" {% if address_record and address_record.label|lower == 'home' %}selected{% endif %}>Home</option>
+        <option value="Work" {% if address_record and address_record.label|lower == 'work' %}selected{% endif %}>Work</option>
+        <option value="Office" {% if address_record and address_record.label|lower == 'office' %}selected{% endif %}>Office</option>
+        <option value="Other" {% if address_record and address_record.label|lower == 'other' %}selected{% endif %}>Other</option>
+      </select>
       <input class="lux-input" name="full_name" placeholder="Full name" value="{% if address_record %}{{ address_record.full_name }}{% endif %}" required>
     </div>
-    <input class="lux-input" name="phone" placeholder="Phone number" value="{% if address_record %}{{ address_record.phone }}{% endif %}" required>
+    <div class="form-grid">
+      <select class="lux-input" name="phone_country_code" data-phone-country-code required>
+        <option value="+91">+91 India</option>
+        <option value="+1">+1 United States</option>
+        <option value="+44">+44 United Kingdom</option>
+        <option value="+971">+971 UAE</option>
+      </select>
+      <input class="lux-input" name="phone_local" placeholder="Phone number" value="{% if address_record %}{{ address_record.phone }}{% endif %}" data-phone-local required>
+    </div>
     <input class="lux-input" name="line1" placeholder="Address line 1" value="{% if address_record %}{{ address_record.line1 }}{% endif %}" required>
     <input class="lux-input" name="line2" placeholder="Address line 2" value="{% if address_record %}{{ address_record.line2 }}{% endif %}">
     <div class="form-grid">
-      <input class="lux-input" name="city" placeholder="City" value="{% if address_record %}{{ address_record.city }}{% endif %}" required>
-      <input class="lux-input" name="state" placeholder="State" value="{% if address_record %}{{ address_record.state }}{% endif %}" required>
+      <select class="lux-input" name="country" data-address-country required>
+        <option value="India" {% if not address_record or address_record.country == 'India' %}selected{% endif %}>India</option>
+        <option value="United States" {% if address_record and address_record.country == 'United States' %}selected{% endif %}>United States</option>
+        <option value="United Kingdom" {% if address_record and address_record.country == 'United Kingdom' %}selected{% endif %}>United Kingdom</option>
+        <option value="United Arab Emirates" {% if address_record and address_record.country == 'United Arab Emirates' %}selected{% endif %}>United Arab Emirates</option>
+      </select>
+      <select class="lux-input" name="state" data-address-state data-initial-value="{% if address_record %}{{ address_record.state }}{% endif %}" required></select>
     </div>
     <div class="form-grid">
+      <select class="lux-input" name="city" data-address-city data-initial-value="{% if address_record %}{{ address_record.city }}{% endif %}" required></select>
       <input class="lux-input" name="postal_code" placeholder="Postal code" value="{% if address_record %}{{ address_record.postal_code }}{% endif %}" required>
-      <input class="lux-input" name="country" placeholder="Country" value="{% if address_record %}{{ address_record.country }}{% else %}India{% endif %}" required>
     </div>
     <label class="profile-address-default">
       <input type="checkbox" name="is_default" {% if address_record and address_record.is_default %}checked{% endif %}>

@@ -1157,12 +1157,109 @@ const Storefront = (() => {
       country: "India",
       is_default: false,
     };
-    ["label", "full_name", "phone", "line1", "line2", "city", "state", "postal_code", "country"].forEach((name) => {
+    ["label", "full_name", "line1", "line2", "postal_code", "country"].forEach((name) => {
       const field = form.elements.namedItem(name);
       if (field) field.value = values[name] || "";
     });
+    setPhoneFields(form, values.phone || "");
+    syncAddressLocationFields(form, {
+      country: values.country || "India",
+      state: values.state || "",
+      city: values.city || "",
+    });
     const defaultField = form.elements.namedItem("is_default");
     if (defaultField) defaultField.checked = Boolean(values.is_default);
+  }
+
+  const ADDRESS_LOCATION_DATA = {
+    India: {
+      "Delhi": ["New Delhi", "North Delhi", "South Delhi", "East Delhi", "West Delhi"],
+      "Maharashtra": ["Mumbai", "Pune", "Nagpur", "Nashik"],
+      "Karnataka": ["Bengaluru", "Mysuru", "Mangaluru", "Hubballi"],
+      "Tamil Nadu": ["Chennai", "Coimbatore", "Madurai", "Salem"],
+      "Uttar Pradesh": ["Lucknow", "Noida", "Ghaziabad", "Kanpur"],
+      "Haryana": ["Gurugram", "Faridabad", "Panipat", "Ambala"],
+    },
+    "United States": {
+      "California": ["Los Angeles", "San Francisco", "San Diego", "San Jose"],
+      "New York": ["New York City", "Buffalo", "Albany", "Rochester"],
+      "Texas": ["Houston", "Dallas", "Austin", "San Antonio"],
+      "Florida": ["Miami", "Orlando", "Tampa", "Jacksonville"],
+    },
+    "United Kingdom": {
+      "England": ["London", "Manchester", "Birmingham", "Leeds"],
+      "Scotland": ["Glasgow", "Edinburgh", "Aberdeen", "Dundee"],
+      "Wales": ["Cardiff", "Swansea", "Newport", "Bangor"],
+      "Northern Ireland": ["Belfast", "Derry", "Lisburn", "Newry"],
+    },
+    "United Arab Emirates": {
+      "Dubai": ["Dubai"],
+      "Abu Dhabi": ["Abu Dhabi", "Al Ain"],
+      "Sharjah": ["Sharjah", "Khor Fakkan"],
+      "Ajman": ["Ajman"],
+    },
+  };
+
+  const PHONE_CODES = ["+91", "+1", "+44", "+971"];
+
+  function setSelectOptions(select, values, placeholder, selectedValue = "") {
+    if (!select) return;
+    const normalizedSelected = String(selectedValue || "");
+    const options = [`<option value="">${placeholder}</option>`].concat(
+      values.map((value) => `<option value="${value}" ${String(value) === normalizedSelected ? "selected" : ""}>${value}</option>`)
+    );
+    select.innerHTML = options.join("");
+  }
+
+  function syncAddressLocationFields(form, values = {}) {
+    if (!form) return;
+    const countryField = form.elements.namedItem("country");
+    const stateField = form.elements.namedItem("state");
+    const cityField = form.elements.namedItem("city");
+    const selectedCountry = values.country || countryField?.value || "India";
+    if (countryField) countryField.value = selectedCountry;
+    const states = Object.keys(ADDRESS_LOCATION_DATA[selectedCountry] || {});
+    setSelectOptions(stateField, states, "Select state", values.state || stateField?.dataset.initialValue || "");
+    const selectedState = values.state || stateField?.value || "";
+    const cities = ADDRESS_LOCATION_DATA[selectedCountry]?.[selectedState] || [];
+    setSelectOptions(cityField, cities, "Select city", values.city || cityField?.dataset.initialValue || "");
+  }
+
+  function splitPhoneNumber(phone = "") {
+    const value = String(phone || "").trim();
+    const matchedCode = PHONE_CODES.find((code) => value.startsWith(code));
+    if (!matchedCode) return { code: "+91", local: value.replace(/\s+/g, "") };
+    return {
+      code: matchedCode,
+      local: value.slice(matchedCode.length).trim().replace(/\s+/g, ""),
+    };
+  }
+
+  function setPhoneFields(form, phone = "") {
+    if (!form) return;
+    const countryCodeField = form.elements.namedItem("phone_country_code");
+    const phoneField = form.elements.namedItem("phone_local");
+    const parts = splitPhoneNumber(phone);
+    if (countryCodeField) countryCodeField.value = parts.code;
+    if (phoneField) phoneField.value = parts.local;
+  }
+
+  function combinedPhoneNumber(form) {
+    const countryCodeField = form?.elements?.namedItem("phone_country_code");
+    const phoneField = form?.elements?.namedItem("phone_local");
+    const code = String(countryCodeField?.value || "+91").trim();
+    const local = String(phoneField?.value || "").trim().replace(/\s+/g, "");
+    return `${code} ${local}`.trim();
+  }
+
+  function bindAddressFieldEnhancements(form) {
+    if (!form || form.dataset.addressFieldsBound === "true") return;
+    form.dataset.addressFieldsBound = "true";
+    syncAddressLocationFields(form);
+    const countryField = form.elements.namedItem("country");
+    const stateField = form.elements.namedItem("state");
+    countryField?.addEventListener("change", () => syncAddressLocationFields(form, { country: countryField.value }));
+    stateField?.addEventListener("change", () => syncAddressLocationFields(form, { country: countryField?.value, state: stateField.value }));
   }
 
   async function navigate(url, push = true) {
@@ -2340,6 +2437,8 @@ const Storefront = (() => {
   function bindAddressPage() {
     const form = $("[data-address-page-form]");
     if (!form) return;
+    bindAddressFieldEnhancements(form);
+    setPhoneFields(form, form.elements.namedItem("phone_local")?.value || "");
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
       const submitter = event.submitter || form.querySelector('[type="submit"]');
@@ -2347,6 +2446,9 @@ const Storefront = (() => {
       await withLockedButton(submitter, async () => {
         try {
           const payload = Object.fromEntries(new FormData(form).entries());
+          payload.phone = combinedPhoneNumber(form);
+          delete payload.phone_country_code;
+          delete payload.phone_local;
           payload.is_default = form.elements.namedItem("is_default")?.checked || false;
           const addressId = form.dataset.addressId;
           const method = form.dataset.addressMode === "edit" && addressId ? "PATCH" : "POST";
@@ -2889,6 +2991,7 @@ const Storefront = (() => {
     const modal = $("[data-address-modal]");
     const form = $("[data-address-form]");
     if (!modal || !form) return;
+    bindAddressFieldEnhancements(form);
 
     const message = $("[data-address-message]", modal);
     const title = $("[data-address-modal-title]", modal);
@@ -2900,8 +3003,8 @@ const Storefront = (() => {
       form.dataset.addressMode = "create";
       if (title) title.textContent = "Add address";
       if (submitButton) submitButton.textContent = "Save address";
-      const country = form.elements.namedItem("country");
-      if (country && !country.value) country.value = "India";
+      syncAddressLocationFields(form, { country: "India" });
+      setPhoneFields(form, "");
       closeModal(modal);
     };
 
@@ -2993,8 +3096,10 @@ const Storefront = (() => {
           const currentMessage = currentModal ? $("[data-address-message]", currentModal) : null;
           if (currentMessage) currentMessage.textContent = "";
           currentForm?.reset();
-          const country = currentForm?.elements?.namedItem?.("country");
-          if (country && !country.value) country.value = "India";
+          if (currentForm) {
+            syncAddressLocationFields(currentForm, { country: "India" });
+            setPhoneFields(currentForm, "");
+          }
           closeModal(currentModal);
         }
       });
@@ -3013,6 +3118,9 @@ const Storefront = (() => {
         try {
           const payload = Object.fromEntries(new FormData(form).entries());
           delete payload.csrfmiddlewaretoken;
+          payload.phone = combinedPhoneNumber(form);
+          delete payload.phone_country_code;
+          delete payload.phone_local;
           payload.is_default = form.elements.namedItem("is_default")?.checked || false;
           const addressId = form.dataset.addressId;
           const method = form.dataset.addressMode === "edit" && addressId ? "PATCH" : "POST";
