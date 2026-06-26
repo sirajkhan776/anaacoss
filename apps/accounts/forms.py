@@ -1,6 +1,9 @@
 from django import forms
+from django.contrib.auth import get_user_model
 
 from .models import Profile, ShoppingProfile, User
+
+AuthUser = get_user_model()
 
 
 class CosmeticProfileForm(forms.ModelForm):
@@ -97,3 +100,48 @@ class ShoppingProfileForm(forms.ModelForm):
             "first_name": forms.TextInput(attrs={"class": "lux-input", "placeholder": "First name"}),
             "last_name": forms.TextInput(attrs={"class": "lux-input", "placeholder": "Last name"}),
         }
+
+
+class SuperAdminRegistrationForm(forms.ModelForm):
+    password1 = forms.CharField(label="Password", widget=forms.PasswordInput)
+    password2 = forms.CharField(label="Confirm password", widget=forms.PasswordInput)
+
+    class Meta:
+        model = AuthUser
+        fields = ("username", "email", "first_name", "last_name")
+
+    def clean(self):
+        cleaned_data = super().clean()
+        if cleaned_data.get("password1") != cleaned_data.get("password2"):
+            self.add_error("password2", "Passwords do not match.")
+        return cleaned_data
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        user.is_staff = True
+        user.is_superuser = True
+        user.set_password(self.cleaned_data["password1"])
+        if commit:
+            user.save()
+        return user
+
+
+class SuperAdminPasswordChangeForm(forms.Form):
+    user = forms.ModelChoiceField(
+        queryset=AuthUser.objects.filter(is_superuser=True).order_by("username"),
+        label="Superadmin",
+    )
+    password1 = forms.CharField(label="New password", widget=forms.PasswordInput)
+    password2 = forms.CharField(label="Confirm new password", widget=forms.PasswordInput)
+
+    def clean(self):
+        cleaned_data = super().clean()
+        if cleaned_data.get("password1") != cleaned_data.get("password2"):
+            self.add_error("password2", "Passwords do not match.")
+        return cleaned_data
+
+    def save(self):
+        user = self.cleaned_data["user"]
+        user.set_password(self.cleaned_data["password1"])
+        user.save(update_fields=["password"])
+        return user

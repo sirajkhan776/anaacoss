@@ -41,7 +41,7 @@
       <span><i class="fa-solid fa-credit-card"></i> All major methods</span>
     </div>
     {% if not razorpay_enabled %}
-      <p class="form-note payment-gateway-note">Razorpay keys are not configured yet. Online payments will stay disabled until `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` are added in `.env`.</p>
+      <p class="form-note payment-gateway-note">Razorpay keys are not configured yet. Online payments will stay disabled until `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` are added in `.env` or `.env.example`.</p>
     {% endif %}
   </section>
 

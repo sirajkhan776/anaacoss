@@ -1,6 +1,10 @@
 from django.contrib import admin
+from django.contrib import messages
 from django.contrib.auth.admin import UserAdmin
+from django.shortcuts import redirect, render
+from django.urls import path, reverse
 
+from .forms import SuperAdminPasswordChangeForm, SuperAdminRegistrationForm
 from .models import Address, Profile, ShoppingProfile, User
 
 
@@ -27,3 +31,65 @@ class AddressAdmin(admin.ModelAdmin):
 class ShoppingProfileAdmin(admin.ModelAdmin):
     list_display = ("user", "first_name", "last_name", "created_at")
     search_fields = ("user__email", "user__username", "first_name", "last_name")
+
+
+def register_superadmin_view(request):
+    if request.method == "POST":
+        form = SuperAdminRegistrationForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            messages.success(request, f"Superadmin '{user.username}' created successfully.")
+            return redirect("admin:accounts_register_superadmin")
+    else:
+        form = SuperAdminRegistrationForm()
+
+    context = {
+        **admin.site.each_context(request),
+        "title": "Register superadmin",
+        "form": form,
+        "opts": User._meta,
+        "change_password_url": reverse("admin:accounts_change_superadmin_password"),
+    }
+    return render(request, "admin/accounts/register_superadmin.html", context)
+
+
+def change_superadmin_password_view(request):
+    if request.method == "POST":
+        form = SuperAdminPasswordChangeForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            messages.success(request, f"Password updated for superadmin '{user.username}'.")
+            return redirect("admin:accounts_change_superadmin_password")
+    else:
+        form = SuperAdminPasswordChangeForm()
+
+    context = {
+        **admin.site.each_context(request),
+        "title": "Change superadmin password",
+        "form": form,
+        "opts": User._meta,
+        "register_url": reverse("admin:accounts_register_superadmin"),
+    }
+    return render(request, "admin/accounts/change_superadmin_password.html", context)
+
+
+original_get_urls = admin.site.get_urls
+
+
+def custom_admin_urls():
+    custom_urls = [
+        path(
+            "superadmin/register/",
+            admin.site.admin_view(register_superadmin_view),
+            name="accounts_register_superadmin",
+        ),
+        path(
+            "superadmin/change-password/",
+            admin.site.admin_view(change_superadmin_password_view),
+            name="accounts_change_superadmin_password",
+        ),
+    ]
+    return custom_urls + original_get_urls()
+
+
+admin.site.get_urls = custom_admin_urls

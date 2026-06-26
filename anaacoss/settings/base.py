@@ -11,8 +11,18 @@ except ImportError:  # pragma: no cover
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
+USING_ENV_EXAMPLE = False
 if load_dotenv:
-    load_dotenv(BASE_DIR / ".env")
+    env_file = BASE_DIR / ".env"
+    parent_env_file = BASE_DIR.parent / ".env"
+    env_example_file = BASE_DIR / ".env.example"
+    if env_file.exists():
+        load_dotenv(env_file)
+    elif parent_env_file.exists():
+        load_dotenv(parent_env_file)
+    elif env_example_file.exists():
+        load_dotenv(env_example_file)
+        USING_ENV_EXAMPLE = True
 
 
 def env(name, default=None):
@@ -83,10 +93,13 @@ TEMPLATES = [
 WSGI_APPLICATION = "anaacoss.wsgi.application"
 ASGI_APPLICATION = "anaacoss.asgi.application"
 
-if os.environ.get("DATABASE_URL"):
+database_url = os.environ.get("DATABASE_URL")
+use_database_url = bool(database_url) and (not USING_ENV_EXAMPLE or env_bool("USE_EXAMPLE_DATABASE_URL", False))
+
+if use_database_url:
     DATABASES = {
         "default": dj_database_url.parse(
-            os.environ["DATABASE_URL"],
+            database_url,
             conn_max_age=600,
             conn_health_checks=True,
         )

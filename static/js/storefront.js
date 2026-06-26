@@ -401,6 +401,35 @@ const Storefront = (() => {
     });
   }
 
+  let razorpayScriptPromise = null;
+
+  function ensureRazorpayScript() {
+    if (typeof window.Razorpay === "function") return Promise.resolve();
+    if (razorpayScriptPromise) return razorpayScriptPromise;
+
+    razorpayScriptPromise = new Promise((resolve, reject) => {
+      const existing = document.querySelector('script[data-razorpay-checkout="true"]');
+      if (existing) {
+        existing.addEventListener("load", () => resolve(), { once: true });
+        existing.addEventListener("error", () => reject(new Error("Razorpay checkout failed to load.")), { once: true });
+        return;
+      }
+
+      const script = document.createElement("script");
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.async = true;
+      script.dataset.razorpayCheckout = "true";
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error("Razorpay checkout failed to load."));
+      document.head.appendChild(script);
+    }).catch((error) => {
+      razorpayScriptPromise = null;
+      throw error;
+    });
+
+    return razorpayScriptPromise;
+  }
+
   async function startRazorpayPayment(paymentMethod, trigger) {
     const page = $("[data-payment-page]");
     const form = $("[data-checkout-form]", page || document);
@@ -409,7 +438,9 @@ const Storefront = (() => {
       toast("Online payments are not available right now.");
       return;
     }
-    if (typeof window.Razorpay !== "function") {
+    try {
+      await ensureRazorpayScript();
+    } catch {
       toast("Payment gateway failed to load. Refresh and try again.");
       return;
     }
@@ -573,17 +604,51 @@ const Storefront = (() => {
     return data;
   }
 
+  function humanizeErrorKey(key) {
+    return String(key || "")
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+  }
+
+  function normalizeErrorText(value) {
+    if (Array.isArray(value)) {
+      return value.map((item) => normalizeErrorText(item)).filter(Boolean).join(", ");
+    }
+    if (value && typeof value === "object") {
+      return flattenError(value);
+    }
+    return String(value || "").trim();
+  }
+
   function flattenError(error) {
+    if (!error) return "Something went wrong. Please try again.";
     if (typeof error === "string") return error;
-    return Object.entries(error || {}).map(([key, value]) => {
-      const text = Array.isArray(value) ? value.join(", ") : value;
+    if (Array.isArray(error)) return error.map((item) => normalizeErrorText(item)).filter(Boolean).join(", ");
+
+    const messages = Object.entries(error).map(([key, value]) => {
+      const text = normalizeErrorText(value);
+      if (!text) return "";
       if (key === "non_field_errors" || key === "detail") return text;
-      return `${key}: ${text}`;
-    }).join(" ");
+      return `${humanizeErrorKey(key)}: ${text}`;
+    }).filter(Boolean);
+
+    return messages.join(" ");
   }
 
   function saveCartSelection() {
     localStorage.setItem("anaacoss_cart_selected", JSON.stringify([...state.cartSelectedIds]));
+  }
+
+  function findCartItemForCheckout(cart, { productId, variantId = "" } = {}) {
+    const normalizedProductId = String(productId || "");
+    const normalizedVariantId = variantId ? String(variantId) : "";
+    const items = [...(cart?.items || [])];
+    items.reverse();
+    return items.find((item) => {
+      const sameProduct = String(item.product?.id || "") === normalizedProductId;
+      const sameVariant = normalizedVariantId ? String(item.variant || "") === normalizedVariantId : true;
+      return sameProduct && sameVariant;
+    }) || null;
   }
 
   function syncCartSelection(cart) {
@@ -1534,12 +1599,26 @@ const Storefront = (() => {
       const buy = event.target.closest("[data-buy-now]");
       if (buy) {
         event.preventDefault();
+        const completeBuyNow = async () => {
+          const cart = await api("/api/cart/add/", {
+            method: "POST",
+            body: JSON.stringify({ product_id: buy.dataset.buyNow, quantity: 1 }),
+          });
+          const checkoutItem = findCartItemForCheckout(cart, { productId: buy.dataset.buyNow });
+          await updateCartBadge();
+          if (!checkoutItem) {
+            await navigate("/checkout/");
+            return;
+          }
+          state.cartSelectedIds = new Set([String(checkoutItem.id)]);
+          saveCartSelection();
+          await navigate(`/checkout/?items=${checkoutItem.id}`);
+        };
         await withLockedButton(buy, async () => {
           try {
-            await api("/api/cart/add/", { method: "POST", body: JSON.stringify({ product_id: buy.dataset.buyNow, quantity: 1 }) });
-            await navigate("/checkout/");
+            await completeBuyNow();
           } catch {
-            openAuthModal(buy, { returnUrl: "/checkout/" });
+            openAuthModal(buy, { returnUrl: "/checkout/", onSuccess: completeBuyNow });
           }
         });
       }
