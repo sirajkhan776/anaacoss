@@ -8,5 +8,9 @@ __pycache__/
 media/
 staticfiles/
 db.sqlite3
+local.sqlite3
+test.sqlite3
+test.sqlite3-journal
+sqlite_export.json
 
 
