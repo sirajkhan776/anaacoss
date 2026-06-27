@@ -1,5 +1,134 @@
 {% extends "admin/base_site.html" %}
 
+{% block extrastyle %}
+{{ block.super }}
+<style>
+  .setup-shell {
+    max-width: 880px;
+    margin: 32px auto;
+    padding: 0 12px;
+  }
+  .setup-card {
+    display: grid;
+    grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+    background: linear-gradient(135deg, #fffaf8 0%, #ffffff 58%, #fff4f0 100%);
+    border: 1px solid #eadfdc;
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow: 0 20px 50px rgba(60, 32, 24, 0.12);
+  }
+  .setup-aside {
+    padding: 34px 28px;
+    background: linear-gradient(180deg, #231718 0%, #382122 100%);
+    color: #fff7f4;
+  }
+  .setup-aside h1 {
+    margin: 0 0 12px;
+    font-size: 30px;
+    line-height: 1.1;
+  }
+  .setup-aside p {
+    margin: 0;
+    color: rgba(255, 247, 244, 0.8);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .setup-note {
+    margin-top: 24px;
+    padding-top: 18px;
+    border-top: 1px solid rgba(255,255,255,0.14);
+    font-size: 12px;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: rgba(255, 247, 244, 0.72);
+  }
+  .setup-form {
+    padding: 34px 32px 28px;
+  }
+  .setup-form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px 16px;
+  }
+  .setup-field {
+    display: grid;
+    gap: 6px;
+  }
+  .setup-field-full {
+    grid-column: 1 / -1;
+  }
+  .setup-field label {
+    font-weight: 600;
+    color: #342123;
+  }
+  .setup-field input {
+    width: 100%;
+    min-height: 46px;
+    padding: 10px 14px;
+    border: 1px solid #d8c7c3;
+    border-radius: 12px;
+    background: #fff;
+    box-sizing: border-box;
+    font-size: 14px;
+  }
+  .setup-field input:focus {
+    outline: none;
+    border-color: #9a5b53;
+    box-shadow: 0 0 0 3px rgba(189, 126, 116, 0.16);
+  }
+  .setup-help {
+    margin: 0 0 18px;
+    color: #6a5755;
+    line-height: 1.6;
+  }
+  .setup-error {
+    margin: 0;
+    color: #b42318;
+    font-size: 13px;
+  }
+  .setup-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 26px;
+    padding-top: 18px;
+    border-top: 1px solid #efe3e0;
+  }
+  .setup-back {
+    color: #7b5f5c;
+    text-decoration: none;
+    font-weight: 600;
+  }
+  .setup-submit {
+    min-height: 46px;
+    padding: 0 18px;
+    border: 0;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #8e4f49 0%, #bd7e74 100%);
+    color: #fff;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  @media (max-width: 760px) {
+    .setup-card {
+      grid-template-columns: 1fr;
+    }
+    .setup-form-grid {
+      grid-template-columns: 1fr;
+    }
+    .setup-actions {
+      flex-direction: column-reverse;
+      align-items: stretch;
+    }
+    .setup-back,
+    .setup-submit {
+      text-align: center;
+    }
+  }
+</style>
+{% endblock %}
+
 {% block breadcrumbs %}
 <div class="breadcrumbs">
 <a href="{% url 'admin:login' %}">Admin Login</a>
@@ -8,19 +137,41 @@
 {% endblock %}
 
 {% block content %}
-<div id="content-main">
-  <ul class="object-tools">
-    <li>
-      <a href="{{ login_url }}">Back to login</a>
-    </li>
-  </ul>
-
-  <form method="post" novalidate>
-    {% csrf_token %}
-    {{ form.as_p }}
-    <div class="submit-row">
-      <input type="submit" value="Create admin user" class="default">
+<div class="setup-shell">
+  <div class="setup-card">
+    <aside class="setup-aside">
+      <h1>Admin Setup</h1>
+      <p>Create an admin account for product management, orders, banners, and storefront operations.</p>
+      <div class="setup-note">Anaacoss control panel</div>
+    </aside>
+    <div class="setup-form">
+      <p class="setup-help">Use a real email and a strong password. This account gets full admin access.</p>
+      <form method="post" novalidate>
+        {% csrf_token %}
+        {% if form.non_field_errors %}
+          <div class="setup-field setup-field-full">
+            {% for error in form.non_field_errors %}
+              <p class="setup-error">{{ error }}</p>
+            {% endfor %}
+          </div>
+        {% endif %}
+        <div class="setup-form-grid">
+          {% for field in form %}
+            <div class="setup-field {% if field.name == 'email' or field.name == 'password1' or field.name == 'password2' %}setup-field-full{% endif %}">
+              <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+              {{ field }}
+              {% for error in field.errors %}
+                <p class="setup-error">{{ error }}</p>
+              {% endfor %}
+            </div>
+          {% endfor %}
+        </div>
+        <div class="setup-actions">
+          <a class="setup-back" href="{{ login_url }}">Back to login</a>
+          <button type="submit" class="setup-submit">Create admin user</button>
+        </div>
+      </form>
     </div>
-  </form>
+  </div>
 </div>
 {% endblock %}

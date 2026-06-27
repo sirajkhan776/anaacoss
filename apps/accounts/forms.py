@@ -103,12 +103,60 @@ class ShoppingProfileForm(forms.ModelForm):
 
 
 class SuperAdminRegistrationForm(forms.ModelForm):
-    password1 = forms.CharField(label="Password", widget=forms.PasswordInput)
-    password2 = forms.CharField(label="Confirm password", widget=forms.PasswordInput)
+    password1 = forms.CharField(
+        label="Password",
+        widget=forms.PasswordInput(
+            attrs={
+                "class": "vTextField",
+                "placeholder": "Create a strong password",
+                "autocomplete": "new-password",
+            }
+        ),
+    )
+    password2 = forms.CharField(
+        label="Confirm password",
+        widget=forms.PasswordInput(
+            attrs={
+                "class": "vTextField",
+                "placeholder": "Repeat the password",
+                "autocomplete": "new-password",
+            }
+        ),
+    )
 
     class Meta:
         model = AuthUser
         fields = ("username", "email", "first_name", "last_name")
+        widgets = {
+            "username": forms.TextInput(
+                attrs={
+                    "class": "vTextField",
+                    "placeholder": "Choose a username",
+                    "autocomplete": "username",
+                }
+            ),
+            "email": forms.EmailInput(
+                attrs={
+                    "class": "vTextField",
+                    "placeholder": "name@example.com",
+                    "autocomplete": "email",
+                }
+            ),
+            "first_name": forms.TextInput(
+                attrs={
+                    "class": "vTextField",
+                    "placeholder": "First name",
+                    "autocomplete": "given-name",
+                }
+            ),
+            "last_name": forms.TextInput(
+                attrs={
+                    "class": "vTextField",
+                    "placeholder": "Last name",
+                    "autocomplete": "family-name",
+                }
+            ),
+        }
 
     def clean(self):
         cleaned_data = super().clean()

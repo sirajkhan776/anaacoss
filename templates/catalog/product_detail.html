@@ -39,7 +39,7 @@
         {% if product.badge %}<span class="product-gallery-chip product-gallery-chip-soft">{{ product.badge }}</span>{% endif %}
       </div>
       <div class="viewer" data-tilt-viewer>
-        {% with primary=product.images.all|dictsort:"sort_order"|first %}
+        {% with primary=product.images.all|first %}
           {% if primary.url and primary.media_type == "video" %}
             <video src="{{ primary.url }}" poster="{{ primary.thumbnail }}" controls muted playsinline data-main-video></video>
           {% elif primary.url %}

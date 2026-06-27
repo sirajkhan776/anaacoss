@@ -1,6 +1,6 @@
 <article class="product-card" data-product-id="{{ product.id }}" data-category="{{ product.category.slug }}">
   <a class="product-media" href="{{ product.get_absolute_url }}" data-spa>
-    {% with primary=product.images.all|dictsort:"sort_order"|first %}
+    {% with primary=product.images.all|first %}
       {% if primary.url %}
         <img src="{{ primary.thumbnail|default:primary.url }}" alt="{{ primary.alt_text|default:product.name }}" loading="lazy">
       {% else %}
