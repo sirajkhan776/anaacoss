@@ -47,7 +47,7 @@ original_each_context = admin.site.each_context
 
 def custom_each_context(request):
     context = original_each_context(request)
-    context["admin_setup_allowed"] = not has_admin_users()
+    context["admin_setup_allowed"] = True
     context["admin_setup_url"] = reverse("admin:accounts_setup_admin")
     return context
 
@@ -56,10 +56,6 @@ admin.site.each_context = custom_each_context
 
 
 def setup_admin_view(request):
-    if has_admin_users():
-        messages.warning(request, "Admin setup is disabled because an admin user already exists.")
-        return HttpResponseRedirect(reverse("admin:login"))
-
     if request.method == "POST":
         form = SuperAdminRegistrationForm(request.POST)
         if form.is_valid():
