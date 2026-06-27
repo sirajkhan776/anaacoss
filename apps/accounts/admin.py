@@ -33,19 +33,22 @@ class ShoppingProfileAdmin(admin.ModelAdmin):
     search_fields = ("user__email", "user__username", "first_name", "last_name")
 
 
+admin.site.index_template = "admin/custom_index.html"
+
+
 def register_superadmin_view(request):
     if request.method == "POST":
         form = SuperAdminRegistrationForm(request.POST)
         if form.is_valid():
             user = form.save()
-            messages.success(request, f"Superadmin '{user.username}' created successfully.")
+            messages.success(request, f"Admin user '{user.username}' created successfully.")
             return redirect("admin:accounts_register_superadmin")
     else:
         form = SuperAdminRegistrationForm()
 
     context = {
         **admin.site.each_context(request),
-        "title": "Register superadmin",
+        "title": "Register admin user",
         "form": form,
         "opts": User._meta,
         "change_password_url": reverse("admin:accounts_change_superadmin_password"),
@@ -58,14 +61,14 @@ def change_superadmin_password_view(request):
         form = SuperAdminPasswordChangeForm(request.POST)
         if form.is_valid():
             user = form.save()
-            messages.success(request, f"Password updated for superadmin '{user.username}'.")
+            messages.success(request, f"Password updated for admin user '{user.username}'.")
             return redirect("admin:accounts_change_superadmin_password")
     else:
         form = SuperAdminPasswordChangeForm()
 
     context = {
         **admin.site.each_context(request),
-        "title": "Change superadmin password",
+        "title": "Change admin password",
         "form": form,
         "opts": User._meta,
         "register_url": reverse("admin:accounts_register_superadmin"),

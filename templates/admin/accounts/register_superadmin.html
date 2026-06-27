@@ -3,7 +3,7 @@
 {% block breadcrumbs %}
 <div class="breadcrumbs">
 <a href="{% url 'admin:index' %}">Home</a>
-&rsaquo; Register superadmin
+&rsaquo; Register admin user
 </div>
 {% endblock %}
 
@@ -11,7 +11,7 @@
 <div id="content-main">
   <ul class="object-tools">
     <li>
-      <a href="{{ change_password_url }}">Change superadmin password</a>
+      <a href="{{ change_password_url }}">Change admin password</a>
     </li>
   </ul>
 
@@ -19,7 +19,7 @@
     {% csrf_token %}
     {{ form.as_p }}
     <div class="submit-row">
-      <input type="submit" value="Create superadmin" class="default">
+      <input type="submit" value="Create admin user" class="default">
     </div>
   </form>
 </div>

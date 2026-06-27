@@ -8,7 +8,7 @@ def robots_txt(request):
             [
                 "User-agent: *",
                 "Allow: /",
-                "Disallow: /admin/",
+                "Disallow: /anaacos-admin/",
                 "Disallow: /api/",
                 f"Sitemap: {settings.SITE_URL}/sitemap.xml",
             ]

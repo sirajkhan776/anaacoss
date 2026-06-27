@@ -33,7 +33,7 @@ sitemaps = {
 }
 
 urlpatterns = [
-    path("admin/", admin.site.urls),
+    path("anaacos-admin/", admin.site.urls),
     path("", home, name="home"),
     path("robots.txt", robots_txt, name="robots-txt"),
     path("sitemap.xml", sitemap, {"sitemaps": sitemaps}, name="django.contrib.sitemaps.views.sitemap"),
@@ -49,5 +49,5 @@ urlpatterns = [
     path("api/newsletter/", NewsletterSubscribeView.as_view(), name="api-newsletter"),
 ]
 
-if settings.DEBUG:
+if settings.SERVE_MEDIA:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
