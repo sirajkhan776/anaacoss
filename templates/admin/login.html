@@ -1,0 +1,27 @@
+{% extends "admin/login.html" %}
+
+{% block content %}
+  {{ block.super }}
+  {% if admin_setup_allowed %}
+    <style>
+      .login .submit-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+    </style>
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        const submitRow = document.querySelector(".login .submit-row");
+        if (!submitRow || submitRow.querySelector("[data-admin-setup-link]")) return;
+        const link = document.createElement("a");
+        link.href = "{{ admin_setup_url }}";
+        link.textContent = "Register Admin User";
+        link.className = "button";
+        link.setAttribute("data-admin-setup-link", "true");
+        submitRow.appendChild(link);
+      });
+    </script>
+  {% endif %}
+{% endblock %}
