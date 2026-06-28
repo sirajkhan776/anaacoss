@@ -171,22 +171,31 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
             qs = qs.filter(rating__gte=rating)
         sort = params.get("sort")
         sort_map = {
-            "price_low": "price",
-            "price_high": "-price",
-            "newest": "-created_at",
-            "popular": "-review_count",
+            "price_low": ("price", "-id"),
+            "price_high": ("-price", "-id"),
+            "newest": ("-created_at", "-id"),
+            "popular": ("-review_count", "-rating", "-created_at", "-id"),
             "name": Lower("name"),
         }
         if sort in {"price", "-price", "rating", "-rating", "created_at", "-created_at"}:
-            qs = qs.order_by(sort)
+            if sort == "price":
+                qs = qs.order_by("price", "-id")
+            elif sort == "-price":
+                qs = qs.order_by("-price", "-id")
+            elif sort == "rating":
+                qs = qs.order_by("rating", "-id")
+            elif sort == "-rating":
+                qs = qs.order_by("-rating", "-id")
+            elif sort == "created_at":
+                qs = qs.order_by("created_at", "-id")
+            else:
+                qs = qs.order_by("-created_at", "-id")
         elif sort in sort_map:
             mapped = sort_map[sort]
             if sort == "name":
-                qs = qs.order_by(mapped)
-            elif sort == "popular":
-                qs = qs.order_by("-review_count", "-rating", "-created_at")
+                qs = qs.order_by(mapped, "-id")
             else:
-                qs = qs.order_by(mapped)
+                qs = qs.order_by(*mapped)
         return qs
 
     def get_serializer_class(self):

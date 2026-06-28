@@ -110,7 +110,7 @@ class Product(TimeStampedModel):
     objects = ProductQuerySet.as_manager()
 
     class Meta:
-        ordering = ["-is_featured", "-created_at"]
+        ordering = ["-is_featured", "-created_at", "-id"]
         indexes = [
             models.Index(fields=["slug"]),
             models.Index(fields=["is_active", "is_featured"]),

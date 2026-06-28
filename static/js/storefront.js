@@ -197,7 +197,7 @@ const Storefront = (() => {
     if (clean.startsWith("/cart")) return "/cart/";
     if (clean.startsWith("/orders")) return "/orders/";
     if (clean.startsWith("/dashboard")) return "/dashboard/";
-    return "/";
+    return clean;
   }
 
   function updateMobileNavState() {
@@ -782,6 +782,13 @@ const Storefront = (() => {
           grid.insertAdjacentHTML("beforeend", fresh.map((product) => productCardHtml(product)).join(""));
           fresh.forEach((product) => state.homeFeed.loadedIds.add(String(product.id)));
           syncWishlistButtons(grid);
+        }
+        // Stop infinite loading if pagination returns only already-rendered items.
+        if (!fresh.length && results.length) {
+          state.homeFeed.page = page;
+          state.homeFeed.hasNext = false;
+          setHomeFeedEnd(true);
+          return;
         }
       }
       state.homeFeed.page = page;
