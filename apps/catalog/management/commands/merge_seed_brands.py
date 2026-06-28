@@ -21,6 +21,10 @@ def canonical_brand_name(name):
     return " ".join(parts).strip() or display_name
 
 
+def canonical_brand_key(name):
+    return canonical_brand_name(name).casefold()
+
+
 class Command(BaseCommand):
     help = "Merge duplicate seed-created brands such as 'SADOER GOLD FOIL' into their canonical brand."
 
@@ -34,7 +38,8 @@ class Command(BaseCommand):
 
         for brand in brands:
             canonical_name = canonical_brand_name(brand.name)
-            canonical = canonical_map.get(canonical_name)
+            canonical_key = canonical_brand_key(brand.name)
+            canonical = canonical_map.get(canonical_key)
             if canonical is None:
                 if brand.name != canonical_name:
                     canonical = Brand.objects.filter(name__iexact=canonical_name).exclude(pk=brand.pk).first()
@@ -52,10 +57,24 @@ class Command(BaseCommand):
                             )
                         )
                         canonical = brand
-                    canonical_map[canonical_name] = canonical
                 else:
-                    canonical_map[canonical_name] = brand
-                continue
+                    canonical = brand
+                canonical_map[canonical_key] = canonical
+
+            if canonical.name != canonical_name:
+                old_name = canonical.name
+                canonical.name = canonical_name
+                from django.utils.text import slugify
+
+                canonical.slug = slugify(canonical_name) or canonical.slug
+                canonical.save(update_fields=["name", "slug"])
+                renamed_count += 1
+                self.stdout.write(
+                    self.style.SUCCESS(
+                        f"Renamed brand '{old_name}' to canonical brand '{canonical.name}'."
+                    )
+                )
+                canonical_map[canonical_key] = canonical
 
             if canonical.pk == brand.pk:
                 continue
