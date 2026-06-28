@@ -71,7 +71,7 @@ def home(request):
             ],
             "offer_banners": Banner.objects.filter(is_active=True, placement="offer")[:3],
             "testimonials": Testimonial.objects.filter(is_active=True)[:6],
-            "featured_video_brand": featured_video_product.brand.name if featured_video_product else "YOUZISE",
+            "featured_video_brand": featured_video_product.brand.name if featured_video_product else "K'Afute",
             "featured_video_cta_url": (
                 reverse("storefront-product-detail", kwargs={"slug": featured_video_product.slug})
                 if featured_video_product

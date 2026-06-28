@@ -1048,12 +1048,34 @@ button.is-loading {
   opacity: 1;
   transform: scale(1);
 }
-.hero-slide img {
+.hero-slide img,
+.hero-slide video {
   width: 100%;
   height: 100%;
   object-fit: contain;
   object-position: center;
   padding: 0;
+}
+.hero-slide-badge {
+  position: absolute;
+  z-index: 2;
+  padding: 10px 16px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .02em;
+}
+.hero-slide-badge-top {
+  top: 20px;
+  left: 20px;
+  background: rgba(255,255,255,.92);
+  color: var(--ink);
+}
+.hero-slide-badge-bottom {
+  right: 20px;
+  bottom: 20px;
+  background: rgba(23,19,19,.78);
+  color: #fff;
 }
 .eyebrow { margin: 0 0 10px; text-transform: uppercase; letter-spacing: 0; color: var(--rose-deep); font-size: 12px; font-weight: 800; }
 h1, h2, h3 { font-family: "Playfair Display", serif; line-height: 1.04; margin: 0; }
