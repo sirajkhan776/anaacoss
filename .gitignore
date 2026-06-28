@@ -12,5 +12,6 @@ local.sqlite3
 test.sqlite3
 test.sqlite3-journal
 sqlite_export.json
+products_listing/banner/
 
 

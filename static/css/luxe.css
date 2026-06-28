@@ -1101,6 +1101,58 @@ h3 { font-size: 24px; }
   width: 30px;
   background: #fff;
 }
+.floating-promo-video {
+  position: fixed;
+  right: clamp(14px, 3vw, 28px);
+  bottom: clamp(78px, 9vw, 112px);
+  z-index: 30;
+  width: min(280px, calc(100vw - 28px));
+  padding: 10px;
+  border: 1px solid rgba(234,223,220,.92);
+  border-radius: 24px;
+  background: rgba(255,255,255,.94);
+  box-shadow: 0 22px 48px rgba(42, 23, 22, .18);
+  backdrop-filter: blur(12px);
+}
+.floating-promo-video[hidden] { display: none; }
+.floating-promo-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(23,19,19,.68);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.floating-promo-video-shell {
+  overflow: hidden;
+  border-radius: 18px;
+  background: #120d0f;
+  aspect-ratio: 16 / 9;
+}
+.floating-promo-video-shell video {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+.floating-promo-copy {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 4px 2px;
+}
+.floating-promo-copy strong {
+  font-size: 14px;
+  color: var(--ink);
+}
 .home-category-marquee {
   padding: 10px clamp(18px, 5vw, 76px) 0;
 }
@@ -1408,6 +1460,60 @@ h3 { font-size: 24px; }
 .promise-marquee-item i {
   color: var(--gold);
   font-size: 16px;
+}
+.hello-beauty-section {
+  display: grid;
+  grid-template-columns: minmax(0, 340px) minmax(0, 1fr);
+  gap: 26px;
+  align-items: center;
+  padding: 24px clamp(18px, 5vw, 76px) 10px;
+}
+.hello-beauty-copy p {
+  margin-bottom: 12px;
+}
+.hello-beauty-copy h2 {
+  max-width: 12ch;
+}
+.hello-beauty-video-card {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  min-height: 360px;
+  border-radius: 32px;
+  background: #120d0f;
+  box-shadow: 0 24px 56px rgba(34, 19, 18, .18);
+}
+.hello-beauty-video-shell,
+.hello-beauty-video-shell video {
+  width: 100%;
+  height: 100%;
+}
+.hello-beauty-video-shell video {
+  display: block;
+  object-fit: cover;
+}
+.hello-beauty-brand-tag,
+.hello-beauty-cta {
+  position: absolute;
+  z-index: 2;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .02em;
+}
+.hello-beauty-brand-tag {
+  top: 18px;
+  left: 18px;
+  padding: 10px 16px;
+  background: rgba(255,255,255,.92);
+  color: var(--ink);
+}
+.hello-beauty-cta {
+  right: 18px;
+  bottom: 18px;
+  padding: 12px 18px;
+  background: rgba(23,19,19,.78);
+  color: #fff;
 }
 .category-tile, .dashboard-card, .info-grid article, .coupon-card, .testimonials article, .summary-card {
   border: 1px solid rgba(234,223,220,.85);
@@ -4624,6 +4730,7 @@ html.reveal-ready .reveal.visible { opacity: 1; transform: translateY(0); }
   .site-search-input,
   .site-search-dropdown,
   .lux-input,
+  .floating-promo-video,
   .home-filter-trigger,
   .home-filter-option,
   .mobile-category-pill,
@@ -4726,6 +4833,11 @@ html.reveal-ready .reveal.visible { opacity: 1; transform: translateY(0); }
 
   .hero-carousel-arrow {
     background: rgba(255,255,255,.08);
+    color: var(--ink);
+  }
+
+  .floating-promo-close {
+    background: rgba(255,255,255,.14);
     color: var(--ink);
   }
 
@@ -5124,6 +5236,15 @@ html.reveal-ready .reveal.visible { opacity: 1; transform: translateY(0); }
   .hero-carousel-dots button.is-active {
     width: 22px;
   }
+  .floating-promo-video {
+    width: min(240px, calc(100vw - 20px));
+    right: 10px;
+    bottom: 84px;
+    border-radius: 20px;
+  }
+  .floating-promo-copy {
+    display: block;
+  }
   .testimonials, .coupon-grid, .dashboard-grid, .info-grid, .site-footer { grid-template-columns: 1fr; }
   .product-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -5140,6 +5261,18 @@ html.reveal-ready .reveal.visible { opacity: 1; transform: translateY(0); }
   }
   .promise-marquee-item {
     font-size: 12px;
+  }
+  .hello-beauty-section {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    padding-top: 18px;
+  }
+  .hello-beauty-copy h2 {
+    max-width: none;
+  }
+  .hello-beauty-video-card {
+    min-height: 240px;
+    border-radius: 24px;
   }
   .product-detail {
     gap: 18px;

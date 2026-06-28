@@ -71,6 +71,21 @@
   </div>
 </section>
 
+<aside class="floating-promo-video reveal" data-home-promo-video aria-label="Featured beauty video">
+  <button class="floating-promo-close" type="button" data-home-promo-close aria-label="Close featured video">
+    <i class="fa-solid fa-xmark"></i>
+  </button>
+  <div class="floating-promo-video-shell">
+    <video autoplay muted loop playsinline preload="metadata">
+      <source src="{% static 'videos/home-promo.mp4' %}" type="video/mp4">
+    </video>
+  </div>
+  <div class="floating-promo-copy">
+    <p class="eyebrow">Featured</p>
+    <strong>New beauty motion</strong>
+  </div>
+</aside>
+
 <section class="promise-marquee reveal" aria-label="Shopping promises">
   <div class="promise-marquee-shell">
     <div class="promise-marquee-track">
@@ -84,6 +99,22 @@
       <span class="promise-marquee-item" aria-hidden="true"><i class="fa-solid fa-lock"></i> Secure checkout</span>
     </div>
   </div>
+</section>
+
+<section class="hello-beauty-section reveal">
+  <div class="hello-beauty-copy">
+    <p class="eyebrow">Hello , New Beauty!</p>
+    <h2>Discover your next big obsession</h2>
+  </div>
+  <a class="hello-beauty-video-card" href="{{ featured_video_cta_url }}" data-spa aria-label="Shop {{ featured_video_brand }}">
+    <div class="hello-beauty-brand-tag">{{ featured_video_brand }}</div>
+    <div class="hello-beauty-video-shell">
+      <video autoplay muted loop playsinline preload="metadata">
+        <source src="{% static 'videos/hello-new-beauty.mp4' %}" type="video/mp4">
+      </video>
+    </div>
+    <div class="hello-beauty-cta">Shop now</div>
+  </a>
 </section>
 
 <section class="section blush-band reveal">

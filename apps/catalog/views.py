@@ -34,6 +34,16 @@ def banner_media_type(banner):
 def home(request):
     hero_banners = Banner.objects.filter(is_active=True, placement="hero")[:3]
     home_feed = Product.objects.visible().select_related("brand", "category").prefetch_related("images")
+    featured_video_product = (
+        Product.objects.visible()
+        .select_related("brand")
+        .filter(
+            Q(name__icontains="youzise")
+            | Q(brand__name__icontains="youzise")
+            | Q(name__icontains="volcano mud")
+        )
+        .first()
+    )
     ctx = base_context()
     ctx.update(
         {
@@ -61,6 +71,12 @@ def home(request):
             ],
             "offer_banners": Banner.objects.filter(is_active=True, placement="offer")[:3],
             "testimonials": Testimonial.objects.filter(is_active=True)[:6],
+            "featured_video_brand": featured_video_product.brand.name if featured_video_product else "YOUZISE",
+            "featured_video_cta_url": (
+                reverse("storefront-product-detail", kwargs={"slug": featured_video_product.slug})
+                if featured_video_product
+                else "/shop/?q=K%27afute%20charcoal%20face%20wash"
+            ),
         }
     )
     return render(request, "home.html", ctx)
@@ -205,8 +221,17 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
 
     @action(detail=False)
     def suggestions(self, request):
-        q = request.query_params.get("q", "")
-        products = self.get_queryset().filter(name__icontains=q)[:6] if q else []
+        q = (request.query_params.get("q", "") or "").strip()
+        products = (
+            self.get_queryset()
+            .filter(
+                Q(name__icontains=q)
+                | Q(short_description__icontains=q)
+                | Q(brand__name__icontains=q)
+            )[:6]
+            if q
+            else []
+        )
         return Response(ProductCardSerializer(products, many=True, context={"request": request}).data)
 
     @action(detail=False)

@@ -49,13 +49,6 @@ const Storefront = (() => {
 
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
-  const defaultSearchSuggestions = [
-    { label: "Matte Lipstick", query: "lipstick", icon: "fa-solid fa-wand-magic-sparkles" },
-    { label: "Hydrating Serum", query: "serum", icon: "fa-solid fa-droplet" },
-    { label: "Daily Moisturizer", query: "moisturizer", icon: "fa-solid fa-spa" },
-    { label: "Full Coverage Foundation", query: "foundation", icon: "fa-solid fa-palette" },
-    { label: "Vitamin C Skincare", query: "skincare", icon: "fa-solid fa-sun" },
-  ];
   const rotatingSearchTerms = [
     "Mascara",
     "Lipstick",
@@ -1680,22 +1673,15 @@ const Storefront = (() => {
     const box = $("[data-search-box]");
     if (!root || !box) return;
     if (!items.length) {
-      root.innerHTML = "";
-      root.classList.remove("open");
+      root.innerHTML = query ? `<div class="suggestion suggestion-empty"><span><strong>No products found</strong><span class="suggestion-meta">Try another product name.</span></span></div>` : "";
+      root.classList.toggle("open", Boolean(query));
       return;
     }
     root.innerHTML = items.map((item) => {
-      if (item.slug) {
-        return `
-          <a class="suggestion" href="/product/${item.slug}/" data-spa>
-            ${item.primary_image ? `<img src="${item.primary_image}" alt="${item.name}">` : `<div class="image-fallback"><i class="fa-solid fa-spa"></i></div>`}
-            <span><strong>${item.name}</strong><br>Rs. ${item.final_price}</span>
-          </a>`;
-      }
       return `
-        <a class="suggestion" href="/shop/?q=${encodeURIComponent(item.query)}">
-          <div class="image-fallback"><i class="${item.icon}"></i></div>
-          <span><strong>${item.label}</strong><span class="suggestion-meta"><i class="fa-solid fa-arrow-trend-up"></i>${query ? `Search for ${item.query}` : "Trending beauty search"}</span></span>
+        <a class="suggestion" href="/product/${item.slug}/" data-spa>
+          ${item.primary_image ? `<img src="${item.primary_image}" alt="${item.name}">` : `<div class="image-fallback"><i class="fa-solid fa-spa"></i></div>`}
+          <span><strong>${item.name}</strong><br>Rs. ${item.final_price}</span>
         </a>`;
     }).join("");
     root.classList.add("open");
@@ -2558,7 +2544,7 @@ const Storefront = (() => {
         return;
       }
       const data = await api(`/api/products/suggestions/?q=${encodeURIComponent(query)}`, { silent: true });
-      renderSearchSuggestions(data.length ? data : defaultSearchSuggestions, query);
+      renderSearchSuggestions(data, query);
     };
 
     const setPlaceholder = (text, entering = false) => {
@@ -2634,10 +2620,7 @@ const Storefront = (() => {
     camera?.addEventListener("change", () => {
       const file = camera.files?.[0];
       if (!file) return;
-      const matched = defaultSearchSuggestions.find((item) => file.name.toLowerCase().includes(item.query)) || defaultSearchSuggestions[0];
-      input.value = matched.query;
-      runSearch(matched.query);
-      toast(`Photo selected. Showing results for ${matched.label}`);
+      toast("Photo search is not available yet");
       camera.value = "";
     });
   }
@@ -3258,6 +3241,22 @@ const Storefront = (() => {
     });
   }
 
+  function bindHomePromoVideo() {
+    const promo = $("[data-home-promo-video]");
+    if (!promo) return;
+    if (sessionStorage.getItem("anaacoss_home_promo_closed") === "true") {
+      promo.hidden = true;
+      return;
+    }
+    const close = $("[data-home-promo-close]", promo);
+    if (!close || promo.dataset.bound === "true") return;
+    promo.dataset.bound = "true";
+    close.addEventListener("click", () => {
+      promo.hidden = true;
+      sessionStorage.setItem("anaacoss_home_promo_closed", "true");
+    });
+  }
+
   function bindCategoryMarquee() {
     if (state.categoryMarqueeRaf) {
       window.cancelAnimationFrame(state.categoryMarqueeRaf);
@@ -3335,6 +3334,7 @@ const Storefront = (() => {
     bindLocationModal();
     bindShareModal();
     bindHomeFeed();
+    bindHomePromoVideo();
     bindAddressPage();
     bindHomeHero();
     bindCategoryMarquee();
