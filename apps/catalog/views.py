@@ -204,9 +204,21 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
     def curated(self, request):
         return Response(
             {
-                "trending": ProductCardSerializer(Product.objects.visible().filter(is_trending=True)[:8], many=True).data,
-                "best_sellers": ProductCardSerializer(Product.objects.visible().filter(is_best_seller=True)[:8], many=True).data,
-                "new_arrivals": ProductCardSerializer(Product.objects.visible().filter(is_new_arrival=True)[:8], many=True).data,
+                "trending": ProductCardSerializer(
+                    Product.objects.visible().filter(is_trending=True)[:8],
+                    many=True,
+                    context={"request": request},
+                ).data,
+                "best_sellers": ProductCardSerializer(
+                    Product.objects.visible().filter(is_best_seller=True)[:8],
+                    many=True,
+                    context={"request": request},
+                ).data,
+                "new_arrivals": ProductCardSerializer(
+                    Product.objects.visible().filter(is_new_arrival=True)[:8],
+                    many=True,
+                    context={"request": request},
+                ).data,
             }
         )
 

@@ -1,6 +1,8 @@
 from django.db import transaction
 from rest_framework import serializers
 
+from anaacoss.utils import absolute_media_url
+
 from .models import Brand, Category, Product, ProductImage, ProductVariant, Review, ReviewImage
 
 
@@ -17,12 +19,18 @@ class BrandSerializer(serializers.ModelSerializer):
 
 
 class ProductImageSerializer(serializers.ModelSerializer):
-    url = serializers.ReadOnlyField()
-    thumbnail = serializers.ReadOnlyField()
+    url = serializers.SerializerMethodField()
+    thumbnail = serializers.SerializerMethodField()
 
     class Meta:
         model = ProductImage
         fields = ("id", "media_type", "placement", "url", "thumbnail", "alt_text", "is_primary", "sort_order")
+
+    def get_url(self, obj):
+        return absolute_media_url(obj.url, self.context.get("request"))
+
+    def get_thumbnail(self, obj):
+        return absolute_media_url(obj.thumbnail, self.context.get("request"))
 
 
 class ProductVariantSerializer(serializers.ModelSerializer):
@@ -65,11 +73,11 @@ class ProductCardSerializer(serializers.ModelSerializer):
 
     def get_primary_image(self, obj):
         image = obj.images.filter(media_type="image", placement="gallery", is_primary=True).first() or obj.images.filter(media_type="image").first()
-        return image.url if image else ""
+        return absolute_media_url(image.url, self.context.get("request")) if image else ""
 
     def get_secondary_image(self, obj):
         image = obj.images.filter(media_type="image", placement="gallery").exclude(is_primary=True).first()
-        return image.url if image else self.get_primary_image(obj)
+        return absolute_media_url(image.url, self.context.get("request")) if image else self.get_primary_image(obj)
 
 
 class ProductDetailSerializer(ProductCardSerializer):
@@ -91,11 +99,14 @@ class ProductDetailSerializer(ProductCardSerializer):
 
 
 class ReviewImageSerializer(serializers.ModelSerializer):
-    url = serializers.ImageField(source="image", read_only=True)
+    url = serializers.SerializerMethodField()
 
     class Meta:
         model = ReviewImage
         fields = ("id", "url", "alt_text")
+
+    def get_url(self, obj):
+        return absolute_media_url(obj.image.url, self.context.get("request"))
 
 
 class ReviewSerializer(serializers.ModelSerializer):
