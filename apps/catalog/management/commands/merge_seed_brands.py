@@ -27,6 +27,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         merged_count = 0
         moved_products = 0
+        renamed_count = 0
 
         brands = list(Brand.objects.order_by("name"))
         canonical_map = {}
@@ -38,12 +39,18 @@ class Command(BaseCommand):
                 if brand.name != canonical_name:
                     canonical = Brand.objects.filter(name__iexact=canonical_name).exclude(pk=brand.pk).first()
                     if canonical is None:
+                        old_name = brand.name
                         brand.name = canonical_name
-                        if not brand.slug:
-                            from django.utils.text import slugify
+                        from django.utils.text import slugify
 
-                            brand.slug = slugify(canonical_name)
+                        brand.slug = slugify(canonical_name) or brand.slug
                         brand.save(update_fields=["name", "slug"])
+                        renamed_count += 1
+                        self.stdout.write(
+                            self.style.SUCCESS(
+                                f"Renamed brand '{old_name}' to canonical brand '{brand.name}'."
+                            )
+                        )
                         canonical = brand
                     canonical_map[canonical_name] = canonical
                 else:
@@ -69,6 +76,6 @@ class Command(BaseCommand):
 
         self.stdout.write(
             self.style.SUCCESS(
-                f"Brand merge complete. Duplicate brands removed: {merged_count}, products reassigned: {moved_products}."
+                f"Brand merge complete. Brands renamed: {renamed_count}, duplicate brands removed: {merged_count}, products reassigned: {moved_products}."
             )
         )
