@@ -1994,7 +1994,8 @@ const Storefront = (() => {
         const products = data.results || data;
         $("[data-product-grid]").innerHTML = products.map(productCardHtml).join("") || `<p>No products found.</p>`;
         syncWishlistButtons($("[data-product-grid]"));
-        $("[data-result-count]").textContent = `${products.length} products`;
+        const total = Number(data?.count);
+        $("[data-result-count]").textContent = `${Number.isFinite(total) ? total : products.length} products`;
       });
     });
   }

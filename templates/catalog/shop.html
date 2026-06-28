@@ -15,7 +15,7 @@
       <label>Category
         <select class="lux-input" name="category">
           <option value="">All categories</option>
-          {% for category in categories %}<option value="{{ category.slug }}">{{ category.name }}</option>{% endfor %}
+          {% for category in categories %}<option value="{{ category.slug }}" {% if active_category and active_category.slug == category.slug %}selected{% endif %}>{{ category.name }}</option>{% endfor %}
         </select>
       </label>
       <label>Brand
@@ -52,7 +52,6 @@
   <div>
     <div class="shop-toolbar">
       <strong data-result-count>{{ products|length }} products</strong>
-      <span>SPA filters update the grid without a page refresh.</span>
     </div>
     <div class="product-grid" data-product-grid>
       {% for product in products %}
