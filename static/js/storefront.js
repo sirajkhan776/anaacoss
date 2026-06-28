@@ -731,10 +731,10 @@ const Storefront = (() => {
     syncHomeFilterTriggerState();
   }
 
-  function setHomeFeedLoading(active) {
+  function setHomeFeedLoading(active, page = state.homeFeed.page) {
     state.homeFeed.loading = active;
     const loader = $("[data-home-feed-loader]");
-    if (loader) loader.hidden = !active;
+    if (loader) loader.hidden = !active || page <= 1;
   }
 
   function setHomeFeedEnd(show) {
@@ -767,7 +767,7 @@ const Storefront = (() => {
   async function loadHomeFeedPage(page, options = {}) {
     const grid = $("[data-home-product-grid]");
     if (!grid || state.homeFeed.loading || (!state.homeFeed.hasNext && page !== 1)) return;
-    setHomeFeedLoading(true);
+    setHomeFeedLoading(true, page);
     try {
       const payload = await api(homeFeedQuery(page), { method: "GET", silent: true });
       const results = Array.isArray(payload?.results) ? payload.results : [];
@@ -798,7 +798,7 @@ const Storefront = (() => {
     } catch (error) {
       toast(flattenError(error) || "Unable to load products");
     } finally {
-      setHomeFeedLoading(false);
+      setHomeFeedLoading(false, page);
     }
   }
 
