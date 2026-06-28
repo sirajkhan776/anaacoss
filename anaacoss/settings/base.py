@@ -43,6 +43,11 @@ ALLOWED_HOSTS = [h.strip() for h in env("DJANGO_ALLOWED_HOSTS", default_allowed_
 if render_external_hostname and render_external_hostname not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.append(render_external_hostname)
 
+cloudinary_cloud_name = env("CLOUDINARY_CLOUD_NAME", "")
+cloudinary_api_key = env("CLOUDINARY_API_KEY", "")
+cloudinary_api_secret = env("CLOUDINARY_API_SECRET", "")
+use_cloudinary = bool(cloudinary_cloud_name and cloudinary_api_key and cloudinary_api_secret)
+
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -59,6 +64,12 @@ INSTALLED_APPS = [
     "apps.commerce",
     "apps.content",
 ]
+
+if use_cloudinary:
+    INSTALLED_APPS += [
+        "cloudinary_storage",
+        "cloudinary",
+    ]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -129,9 +140,20 @@ USE_TZ = True
 STATIC_URL = "/static/"
 STATIC_ROOT = Path(env("DJANGO_STATIC_ROOT", BASE_DIR / "staticfiles"))
 STATICFILES_DIRS = [BASE_DIR / "static"]
+
+if use_cloudinary:
+    CLOUDINARY_STORAGE = {
+        "CLOUD_NAME": cloudinary_cloud_name,
+        "API_KEY": cloudinary_api_key,
+        "API_SECRET": cloudinary_api_secret,
+        "SECURE": True,
+    }
+
 STORAGES = {
     "default": {
-        "BACKEND": "django.core.files.storage.FileSystemStorage",
+        "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage"
+        if use_cloudinary
+        else "django.core.files.storage.FileSystemStorage",
     },
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
@@ -140,14 +162,15 @@ STORAGES = {
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = Path(env("DJANGO_MEDIA_ROOT", BASE_DIR / "media"))
-SERVE_MEDIA = env_bool("DJANGO_SERVE_MEDIA", DEBUG)
+SERVE_MEDIA = env_bool("DJANGO_SERVE_MEDIA", DEBUG) and not use_cloudinary
 
 # Build containers may not have the runtime media mount available, and some
 # paths can be read-only there. Create the media directory only when possible.
-try:
-    MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
-except OSError:
-    pass
+if not use_cloudinary:
+    try:
+        MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        pass
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
