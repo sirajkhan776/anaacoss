@@ -17,8 +17,20 @@ PRODUCT_WORDS = {
     "FACE WASH": "Face Wash",
     "FACIAL CLEANSER": "Facial Cleanser",
     "CLEANSER": "Cleanser",
+    "SOAP": "Soap",
 }
 PRODUCT_DESCRIPTORS = tuple(sorted(PRODUCT_WORDS, key=len, reverse=True))
+PRODUCT_TYPE_RULES = (
+    ("PLANT HAIR CARE", "hair care soap"),
+    ("HAIR CARE", "hair care soap"),
+    ("BODY WHITENING SOAP", "body soap"),
+    ("WHITENING SOAP", "soap"),
+    ("SOAP", "soap"),
+    ("FACE WASH", "facewash"),
+    ("FACIAL CLEANSER", "cleanser"),
+    ("CLEANSER", "cleanser"),
+    ("FW", "facewash"),
+)
 
 
 def normalize_whitespace(value):
@@ -51,6 +63,14 @@ def split_brand_and_product(folder_name):
     return display_name, display_name
 
 
+def infer_product_type(folder_name):
+    upper_name = clean_display_name(folder_name).upper()
+    for needle, product_type in PRODUCT_TYPE_RULES:
+        if needle in upper_name:
+            return product_type
+    return "facewash"
+
+
 def unique_slug(model, base_value, exclude_pk=None):
     base_slug = slugify(base_value) or "item"
     slug = base_slug
@@ -75,9 +95,26 @@ def next_sku():
     return f"PL-{(max(existing_numbers) + 1) if existing_numbers else 1001}"
 
 
-def build_copy(brand_name, product_name):
+def get_or_create_brand(brand_name):
+    brand_slug = slugify(brand_name) or "brand"
+    brand = Brand.objects.filter(slug=brand_slug).first() or Brand.objects.filter(name__iexact=brand_name).first()
+    if brand:
+        if not brand.slug:
+            brand.slug = unique_slug(Brand, brand_name, exclude_pk=brand.pk)
+            brand.save(update_fields=["slug"])
+        return brand
+
+    return Brand.objects.create(
+        name=brand_name,
+        slug=unique_slug(Brand, brand_name),
+        story=f"{brand_name} creates skincare-focused daily essentials designed for simple, effective cleansing routines.",
+        is_premium=True,
+    )
+
+
+def build_copy(brand_name, product_name, product_type):
     lower_name = product_name.lower()
-    if "charcoal" in lower_name:
+    if "charcoal" in lower_name and product_type == "facewash":
         short_description = "Deep-cleansing charcoal face wash for a fresh, clarified finish."
         description = (
             f"{product_name} by {brand_name} is a skin-refreshing daily cleanser designed to lift away "
@@ -87,7 +124,7 @@ def build_copy(brand_name, product_name):
             "Aqua, glycerin, activated charcoal, cocamidopropyl betaine, aloe vera extract, "
             "niacinamide, panthenol, fragrance."
         )
-    elif "soothing" in lower_name:
+    elif "soothing" in lower_name and product_type in {"facewash", "cleanser"}:
         short_description = "Gentle soothing cleanser that comforts skin while washing away residue."
         description = (
             f"{product_name} by {brand_name} is a calming skincare cleanser made for daily use, "
@@ -97,7 +134,7 @@ def build_copy(brand_name, product_name):
             "Aqua, glycerin, cocamidopropyl betaine, allantoin, chamomile extract, cucumber extract, "
             "panthenol, sodium hyaluronate."
         )
-    elif "luxury soft" in lower_name or "soft" in lower_name:
+    elif ("luxury soft" in lower_name or "soft" in lower_name) and product_type in {"facewash", "cleanser"}:
         short_description = "Creamy face wash with a soft-lather cleanse for everyday comfort."
         description = (
             f"{product_name} by {brand_name} creates a rich, soft cleanse that removes surface impurities "
@@ -106,6 +143,87 @@ def build_copy(brand_name, product_name):
         ingredients = (
             "Aqua, glycerin, stearic acid, myristic acid, coconut-derived cleansers, aloe vera extract, "
             "vitamin E, fragrance."
+        )
+    elif product_type == "soap":
+        if "kojic" in lower_name:
+            short_description = "Brightening kojic soap bar for a smooth, refreshed cleanse."
+            description = (
+                f"{product_name} by {brand_name} is a daily cleansing bar crafted to leave skin feeling clean, "
+                "polished, and refreshed with a rich, creamy wash experience."
+            )
+            ingredients = (
+                "Sodium palmate, sodium palm kernelate, glycerin, kojic acid, niacinamide, coconut oil, "
+                "fragrance, titanium dioxide."
+            )
+        elif "gold" in lower_name:
+            short_description = "Luxury gold-infused beauty soap with a rich cleansing lather."
+            description = (
+                f"{product_name} by {brand_name} is a premium cleansing soap designed to wash away buildup "
+                "while leaving skin soft, smooth, and freshly pampered."
+            )
+            ingredients = (
+                "Sodium palmate, glycerin, gold mica, collagen extract, coconut-derived cleansers, "
+                "vitamin E, fragrance."
+            )
+        elif "collagen" in lower_name:
+            short_description = "Collagen beauty soap for a soft, bouncy-feel daily cleanse."
+            description = (
+                f"{product_name} by {brand_name} is a skincare soap bar made for daily bathing, helping skin "
+                "feel supple, clean, and comforted after each use."
+            )
+            ingredients = (
+                "Sodium palmate, glycerin, hydrolyzed collagen, aloe vera extract, shea butter, "
+                "vitamin E, fragrance."
+            )
+        elif "vitamin c" in lower_name:
+            short_description = "Vitamin C cleansing soap for a fresh, radiant-looking wash."
+            description = (
+                f"{product_name} by {brand_name} is a brightening soap bar that creates a generous lather "
+                "and leaves skin feeling fresh, clean, and energized."
+            )
+            ingredients = (
+                "Sodium palmate, glycerin, vitamin C derivative, citrus extract, coconut oil, "
+                "niacinamide, fragrance."
+            )
+        elif "herbal" in lower_name:
+            short_description = "Herbal soap bar with a clean rinse and balanced everyday feel."
+            description = (
+                f"{product_name} by {brand_name} is a herbal cleansing soap formulated for daily body care, "
+                "helping wash away impurities while keeping the skin feeling comfortable."
+            )
+            ingredients = (
+                "Sodium palmate, glycerin, neem extract, aloe vera extract, turmeric extract, "
+                "tea tree oil, fragrance."
+            )
+        else:
+            short_description = "Daily beauty soap with a rich lather and a clean, refreshed finish."
+            description = (
+                f"{product_name} by {brand_name} is a cleansing soap bar created for a satisfying everyday wash, "
+                "leaving skin feeling clean, soft, and refreshed."
+            )
+            ingredients = (
+                "Sodium palmate, sodium palm kernelate, glycerin, coconut oil, aloe vera extract, "
+                "vitamin E, fragrance."
+            )
+    elif product_type == "body soap":
+        short_description = "Body soap bar for a thorough cleanse and a smooth after-wash feel."
+        description = (
+            f"{product_name} by {brand_name} is a body-cleansing beauty bar designed to create a dense lather, "
+            "rinse away daily buildup, and leave skin feeling fresh and cared for."
+        )
+        ingredients = (
+            "Sodium palmate, glycerin, niacinamide, herbal extracts, coconut oil, shea butter, "
+            "vitamin E, fragrance."
+        )
+    elif product_type == "hair care soap":
+        short_description = "Solid hair care cleansing bar for a fresh scalp and clean strands."
+        description = (
+            f"{product_name} by {brand_name} is a plant-based hair care bar intended to cleanse the scalp and hair "
+            "while maintaining a softer, smoother feel after washing."
+        )
+        ingredients = (
+            "Sodium cocoyl isethionate, glycerin, ginger extract, rosemary extract, argan oil, "
+            "panthenol, fragrance."
         )
     else:
         short_description = "Daily face wash that cleanses effectively and leaves skin feeling refreshed."
@@ -118,10 +236,21 @@ def build_copy(brand_name, product_name):
             "citric acid, fragrance."
         )
 
-    how_to_use = (
-        "Apply a small amount to damp skin, massage gently over the face in circular motions, "
-        "then rinse thoroughly. Use morning and evening."
-    )
+    if product_type in {"soap", "body soap"}:
+        how_to_use = (
+            "Wet the bar and work into a light lather between your hands or on damp skin, "
+            "massage gently, then rinse thoroughly."
+        )
+    elif product_type == "hair care soap":
+        how_to_use = (
+            "Wet hair and scalp, glide the bar or lather in your hands first, massage into the scalp and lengths, "
+            "then rinse thoroughly."
+        )
+    else:
+        how_to_use = (
+            "Apply a small amount to damp skin, massage gently over the face in circular motions, "
+            "then rinse thoroughly. Use morning and evening."
+        )
     return short_description, description, ingredients, how_to_use
 
 
@@ -137,7 +266,7 @@ def image_paths_for_folder(folder_path):
 
 
 class Command(BaseCommand):
-    help = "Seed skincare products from the products_listing folder structure."
+    help = "Seed product listings from folder-based product image sets."
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -184,16 +313,10 @@ class Command(BaseCommand):
                 continue
 
             brand_name, product_name = split_brand_and_product(folder_path.name)
-            brand = Brand.objects.filter(name=brand_name).first()
-            if not brand:
-                brand = Brand.objects.create(
-                    name=brand_name,
-                    slug=unique_slug(Brand, brand_name),
-                    story=f"{brand_name} creates skincare-focused daily essentials designed for simple, effective cleansing routines.",
-                    is_premium=True,
-                )
+            product_type = infer_product_type(folder_path.name)
+            brand = get_or_create_brand(brand_name)
 
-            short_description, description, ingredients, how_to_use = build_copy(brand.name, product_name)
+            short_description, description, ingredients, how_to_use = build_copy(brand.name, product_name, product_type)
             sku = next_sku()
             price_seed = 249 + (sum(ord(char) for char in product_name) % 250)
             price = Decimal(str(price_seed))
@@ -224,7 +347,7 @@ class Command(BaseCommand):
             product.stock = max(product.stock or 0, 24 + len(image_paths))
             product.skin_type = "all"
             product.gender = Product.GENDER_UNISEX
-            product.product_type = "facewash"
+            product.product_type = product_type
             product.is_active = True
             product.is_featured = product.is_featured if not created else False
             product.is_trending = product.is_trending if not created else False
