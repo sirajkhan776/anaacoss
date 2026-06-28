@@ -140,10 +140,14 @@ STORAGES = {
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = Path(env("DJANGO_MEDIA_ROOT", BASE_DIR / "media"))
-# Ensure uploaded-file storage has a concrete directory at runtime.
-# This avoids first-upload failures when the media path exists only as a mount target.
-MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
 SERVE_MEDIA = env_bool("DJANGO_SERVE_MEDIA", DEBUG)
+
+# Build containers may not have the runtime media mount available, and some
+# paths can be read-only there. Create the media directory only when possible.
+try:
+    MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
+except OSError:
+    pass
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
