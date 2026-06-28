@@ -108,7 +108,7 @@ else:
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
-            "NAME": env("SQLITE_PATH", "/var/data/db.sqlite3"),
+            "NAME": env("SQLITE_PATH", str(BASE_DIR / "db.sqlite3")),
         }
     }
 
