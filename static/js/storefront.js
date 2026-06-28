@@ -3211,14 +3211,51 @@ const Storefront = (() => {
     const next = $("[data-home-next]", root);
     if (!slides.length) return;
     let index = Math.max(slides.findIndex((slide) => slide.classList.contains("is-active")), 0);
+    const slideDurationMs = 4500;
+
+    const clearHeroTimer = () => {
+      window.clearInterval(state.heroTimer);
+      state.heroTimer = null;
+    };
+
+    const scheduleNext = () => {
+      clearHeroTimer();
+      const activeSlide = slides[index];
+      const activeVideo = $("video", activeSlide);
+      if (activeVideo) return;
+      if (slides.length > 1) {
+        state.heroTimer = window.setInterval(() => activate(index + 1), slideDurationMs);
+      }
+    };
 
     const activate = (nextIndex) => {
+      clearHeroTimer();
       index = (nextIndex + slides.length) % slides.length;
       slides.forEach((slide, slideIndex) => {
-        slide.classList.toggle("is-active", slideIndex === index);
+        const isActive = slideIndex === index;
+        slide.classList.toggle("is-active", isActive);
+        const video = $("video", slide);
+        if (!video) return;
+        if (isActive) {
+          video.currentTime = 0;
+          video.play().catch(() => {});
+        } else {
+          video.pause();
+          video.currentTime = 0;
+        }
       });
       dots.forEach((dot, dotIndex) => dot.classList.toggle("is-active", dotIndex === index));
+      scheduleNext();
     };
+
+    slides.forEach((slide) => {
+      const video = $("video", slide);
+      if (!video || video.dataset.bound === "true") return;
+      video.dataset.bound = "true";
+      video.addEventListener("ended", () => {
+        if (slide.classList.contains("is-active")) activate(index + 1);
+      });
+    });
 
     dots.forEach((dot, dotIndex) => {
       dot.addEventListener("click", () => activate(dotIndex));
@@ -3227,17 +3264,11 @@ const Storefront = (() => {
     next?.addEventListener("click", () => activate(index + 1));
 
     activate(index);
-    if (slides.length > 1) {
-      state.heroTimer = window.setInterval(() => activate(index + 1), 4500);
-    }
     root.addEventListener("mouseenter", () => {
-      window.clearInterval(state.heroTimer);
-      state.heroTimer = null;
+      clearHeroTimer();
     });
     root.addEventListener("mouseleave", () => {
-      if (slides.length > 1 && !state.heroTimer) {
-        state.heroTimer = window.setInterval(() => activate(index + 1), 4500);
-      }
+      scheduleNext();
     });
   }
 
