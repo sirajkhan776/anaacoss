@@ -31,6 +31,26 @@ PRODUCT_TYPE_RULES = (
     ("CLEANSER", "cleanser"),
     ("FW", "facewash"),
 )
+BRAND_MODIFIER_WORDS = {
+    "CHARCOAL",
+    "SOOTHING",
+    "LUXURY",
+    "SOFT",
+    "HERBAL",
+    "BODY",
+    "WHITENING",
+    "THAI",
+    "COLLAGEN",
+    "GOLD",
+    "FOIL",
+    "KOJIC",
+    "VITAMIN",
+    "C",
+    "PLANT",
+    "HAIR",
+    "CARE",
+    "SENTED",
+}
 
 
 def normalize_whitespace(value):
@@ -51,11 +71,26 @@ def split_brand_and_product(folder_name):
         index = upper_name.find(descriptor)
         if index == -1:
             continue
-        brand_name = normalize_whitespace(display_name[:index]).strip(" -")
+        brand_segment = normalize_whitespace(display_name[:index]).strip(" -")
+        brand_tokens = brand_segment.split()
+        if len(brand_tokens) > 1:
+            brand_parts = [brand_tokens[0]]
+            for token in brand_tokens[1:]:
+                if token.upper() in BRAND_MODIFIER_WORDS:
+                    break
+                brand_parts.append(token)
+            brand_name = normalize_whitespace(" ".join(brand_parts))
+        else:
+            brand_name = brand_segment
         suffix = PRODUCT_WORDS[descriptor]
-        prefix = normalize_whitespace(display_name[index + len(descriptor):]).strip(" -")
-        if prefix:
+        prefix = normalize_whitespace(brand_segment[len(brand_name):]).strip(" -")
+        trailing = normalize_whitespace(display_name[index + len(descriptor):]).strip(" -")
+        if prefix and trailing:
+            product_name = f"{brand_name} {prefix} {trailing} {suffix}".strip()
+        elif prefix:
             product_name = f"{brand_name} {prefix} {suffix}".strip()
+        elif trailing:
+            product_name = f"{brand_name} {trailing} {suffix}".strip()
         else:
             product_name = f"{brand_name} {suffix}".strip()
         return brand_name or display_name, normalize_whitespace(product_name)
