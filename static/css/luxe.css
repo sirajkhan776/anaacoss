@@ -1175,6 +1175,80 @@ h3 { font-size: 24px; }
   font-size: 14px;
   color: var(--ink);
 }
+.home-brand-badges {
+  display: grid;
+  gap: 14px;
+  padding: 18px clamp(18px, 5vw, 76px) 8px;
+}
+.home-brand-badges-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+}
+.home-brand-badges-head p,
+.home-brand-badges-head strong {
+  margin: 0;
+}
+.home-brand-badges-head strong {
+  font-size: 14px;
+  color: var(--muted);
+}
+.home-brand-badge-row {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 4px 0 10px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.home-brand-badge-row::-webkit-scrollbar {
+  display: none;
+}
+.home-brand-badge {
+  flex: 0 0 auto;
+  min-height: 48px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 999px;
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: .02em;
+  cursor: pointer;
+  box-shadow: 0 16px 32px rgba(30, 16, 17, .16);
+  transition: transform .2s ease, box-shadow .2s ease, opacity .2s ease;
+}
+.home-brand-badge:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 20px 38px rgba(30, 16, 17, .2);
+}
+.home-brand-badge.is-active {
+  outline: 2px solid rgba(255,255,255,.92);
+  outline-offset: 2px;
+}
+.home-brand-badge[aria-pressed="false"] {
+  opacity: .82;
+}
+.home-brand-badge:nth-child(6n + 1) {
+  background: linear-gradient(135deg, #29161a, #8a4f4a 60%, #d8a56d);
+}
+.home-brand-badge:nth-child(6n + 2) {
+  background: linear-gradient(135deg, #11243a, #2f6f9f 58%, #b8d9f2);
+}
+.home-brand-badge:nth-child(6n + 3) {
+  background: linear-gradient(135deg, #1f2b1e, #4f7a43 60%, #d6c58a);
+}
+.home-brand-badge:nth-child(6n + 4) {
+  background: linear-gradient(135deg, #351928, #8f4a7b 55%, #f2b5c7);
+}
+.home-brand-badge:nth-child(6n + 5) {
+  background: linear-gradient(135deg, #3c2413, #a96a2c 56%, #f4d8a8);
+}
+.home-brand-badge:nth-child(6n) {
+  background: linear-gradient(135deg, #1a1f35, #5458a7 56%, #d7d5f4);
+}
 .home-category-marquee {
   padding: 10px clamp(18px, 5vw, 76px) 0;
 }
@@ -5263,6 +5337,22 @@ html.reveal-ready .reveal.visible { opacity: 1; transform: translateY(0); }
     right: 10px;
     bottom: 84px;
     border-radius: 20px;
+  }
+  .home-brand-badges {
+    gap: 10px;
+    padding-top: 14px;
+  }
+  .home-brand-badges-head {
+    display: block;
+  }
+  .home-brand-badges-head strong {
+    display: block;
+    margin-top: 4px;
+  }
+  .home-brand-badge {
+    min-height: 42px;
+    padding: 0 16px;
+    font-size: 12px;
   }
   .floating-promo-copy {
     display: block;

@@ -722,6 +722,16 @@ const Storefront = (() => {
     root.hidden = false;
     root.innerHTML = labels.map((item) => `<button class="home-filter-pill" type="button" data-home-filter-pill="${item.key}">${item.label} <i class="fa-solid fa-xmark"></i></button>`).join("");
     syncHomeFilterTriggerState();
+    syncHomeBrandBadges();
+  }
+
+  function syncHomeBrandBadges() {
+    const activeBrand = state.homeFeed.filters.brand || "";
+    $$("[data-home-brand-badge]").forEach((button) => {
+      const isActive = button.dataset.homeBrandBadge === activeBrand;
+      button.classList.toggle("is-active", isActive);
+      button.setAttribute("aria-pressed", String(isActive));
+    });
   }
 
   function setHomeFeedLoading(active, page = state.homeFeed.page) {
@@ -755,6 +765,7 @@ const Storefront = (() => {
       }
       button.classList.toggle("is-active", isActive);
     });
+    syncHomeBrandBadges();
   }
 
   async function loadHomeFeedPage(page, options = {}) {
@@ -1825,7 +1836,8 @@ const Storefront = (() => {
 
   function bindHomeFeed() {
     const root = $("[data-home-feed-root]");
-    if (!root) return;
+    const brandRow = $("[data-home-brand-badges]");
+    if (!root && !brandRow) return;
     resetHomeFeedState();
     renderHomeFilterPills();
     syncHomeFilterTriggerState();
@@ -1842,6 +1854,15 @@ const Storefront = (() => {
           state.homeFeed.currentPanel = trigger.dataset.homeFilterOpen;
           syncHomeFilterModal();
           openModal(modal, trigger);
+          return;
+        }
+
+        const brandBadge = event.target.closest("[data-home-brand-badge]");
+        if (brandBadge) {
+          event.preventDefault();
+          state.homeFeed.filters.brand = brandBadge.dataset.homeBrandBadge || "";
+          renderHomeFilterPills();
+          await refreshHomeFeed();
           return;
         }
 

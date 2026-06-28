@@ -77,6 +77,19 @@
   </div>
 </section>
 
+<section class="home-brand-badges reveal" aria-label="Shop by brand">
+  <div class="home-brand-badges-head">
+    <p class="eyebrow">Brands</p>
+    <strong>Tap a badge to filter premium picks</strong>
+  </div>
+  <div class="home-brand-badge-row" data-home-brand-badges>
+    <button class="home-brand-badge is-active" type="button" data-home-brand-badge="" aria-pressed="true">All</button>
+    {% for brand in home_brands %}
+      <button class="home-brand-badge" type="button" data-home-brand-badge="{{ brand.slug }}" aria-pressed="false">{{ brand.name }}</button>
+    {% endfor %}
+  </div>
+</section>
+
 <aside class="floating-promo-video reveal" data-home-promo-video aria-label="Featured beauty video">
   <button class="floating-promo-close" type="button" data-home-promo-close aria-label="Close featured video">
     <i class="fa-solid fa-xmark"></i>
